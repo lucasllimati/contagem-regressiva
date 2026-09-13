@@ -119,6 +119,35 @@
             cursor: pointer;
         }
 
+        .stats-strip {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(130px, 1fr));
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .stat-card {
+            background: rgba(30, 41, 59, 0.48);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            padding: 14px;
+        }
+
+        .stat-label {
+            color: var(--muted);
+            font-size: 0.76rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+        }
+
+        .stat-value {
+            color: var(--text);
+            font-size: 1.38rem;
+            font-weight: 800;
+            margin-top: 7px;
+        }
+
         .event-form-wrapper {
             display: none;
             background: rgba(30, 41, 59, 0.62);
@@ -139,9 +168,53 @@
             color: var(--text);
         }
 
+        .toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+            background: rgba(30, 41, 59, 0.44);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            padding: 14px;
+        }
+
+        .toolbar-left,
+        .toolbar-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .toolbar input[type="search"],
+        .toolbar select {
+            min-width: 170px;
+            background: rgba(15, 23, 42, 0.6);
+            color: var(--text);
+            border: 1px solid var(--line);
+            outline: none;
+            border-radius: 12px;
+            padding: 12px 14px;
+            font-size: 0.9rem;
+            font-weight: 700;
+        }
+
+        .toolbar input[type="search"]::placeholder {
+            color: var(--muted);
+        }
+
+        .toolbar input[type="search"]:focus,
+        .toolbar select:focus {
+            border-color: var(--blue);
+            box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+        }
+
         .form-grid {
             display: grid;
-            grid-template-columns: minmax(250px, 1.5fr) minmax(220px, 1fr);
+            grid-template-columns: repeat(4, minmax(160px, 1fr));
             gap: 14px;
         }
 
@@ -155,7 +228,8 @@
         }
 
         input[type="text"],
-        input[type="datetime-local"] {
+        input[type="datetime-local"],
+        select {
             background: rgba(15, 23, 42, 0.6);
             color: var(--text);
             border: 1px solid var(--line);
@@ -171,7 +245,8 @@
         }
 
         input[type="text"]:focus,
-        input[type="datetime-local"]:focus {
+        input[type="datetime-local"]:focus,
+        select:focus {
             border-color: var(--blue);
             box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
         }
@@ -273,6 +348,42 @@
             color: var(--danger);
         }
 
+        .priority-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 11px;
+            border-radius: 999px;
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--text);
+            border: 1px solid var(--line);
+            background: rgba(15, 23, 42, 0.5);
+        }
+
+        .priority-low { border-color: rgba(52, 211, 153, 0.6); color: var(--green); }
+        .priority-medium { border-color: rgba(251, 191, 36, 0.6); color: var(--orange, #fbbf24); }
+        .priority-high { border-color: rgba(248, 113, 113, 0.8); color: var(--danger); }
+        .priority-critical { border-color: rgba(239, 68, 68, 1); color: var(--danger); }
+
+        .progress-line {
+            height: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 999px;
+            overflow: hidden;
+            border: 1px solid var(--line);
+            margin-top: 10px;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(135deg, var(--blue), var(--purple));
+            border-radius: inherit;
+            transition: width 0.4s ease;
+        }
+
         .event-actions {
             display: flex;
             align-items: center;
@@ -281,6 +392,14 @@
             flex-wrap: wrap;
         }
 
+        .event-action-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .event-action-btn,
         .toggle-btn {
             background: transparent;
             border: 1px solid var(--line);
@@ -293,6 +412,7 @@
             transition: all 0.2s ease;
         }
 
+        .event-action-btn:hover,
         .toggle-btn:hover {
             border-color: var(--blue);
             color: var(--blue);
@@ -301,6 +421,15 @@
         .toggle-btn.disabled {
             color: var(--muted);
             border-color: var(--line);
+        }
+
+        .event-action-btn.delete {
+            border-color: rgba(248, 113, 113, 0.7);
+            color: var(--danger);
+        }
+
+        .event-action-btn.delete:hover {
+            background: rgba(248, 113, 113, 0.1);
         }
 
         @media (max-width: 780px) {
@@ -312,6 +441,15 @@
 
             .form-grid {
                 grid-template-columns: 1fr;
+            }
+
+            .stats-strip {
+                grid-template-columns: 1fr;
+            }
+
+            .toolbar {
+                align-items: flex-start;
+                flex-direction: column;
             }
 
             .time-card {
@@ -333,8 +471,49 @@
             <button class="primary-btn" id="openFormBtn">+ Novo evento</button>
         </header>
 
+        <section class="stats-strip">
+            <div class="stat-card">
+                <div class="stat-label">Eventos</div>
+                <div class="stat-value" id="totalEvents">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Ativos</div>
+                <div class="stat-value" id="activeEvents">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Expirados</div>
+                <div class="stat-value" id="expiredEvents">0</div>
+            </div>
+        </section>
+
+        <section class="toolbar">
+            <div class="toolbar-left">
+                <input type="search" id="searchInput" class="search-input" placeholder="Buscar evento...">
+            </div>
+            <div class="toolbar-right">
+                <select id="statusFilter">
+                    <option value="all" selected>Todos</option>
+                    <option value="active">Ativos</option>
+                    <option value="inactive">Desativados</option>
+                    <option value="expired">Expirados</option>
+                </select>
+                <select id="sortOrder">
+                    <option value="soonest" selected>Mais próximo</option>
+                    <option value="latest">Mais distante</option>
+                    <option value="priority">Prioridade</option>
+                    <option value="alphabetical">Descrição A-Z</option>
+                </select>
+                <select id="themeSelect">
+                    <option value="blue" selected>Azul Profissional</option>
+                    <option value="violet">Violeta</option>
+                    <option value="green">Verde</option>
+                    <option value="mono">Mono</option>
+                </select>
+            </div>
+        </section>
+
         <section class="event-form-wrapper" id="eventFormWrapper">
-            <div class="form-title">Adicionar evento</div>
+            <div class="form-title" id="formTitle">Adicionar evento</div>
             <div class="form-grid">
                 <label>
                     Descrição
@@ -343,6 +522,25 @@
                 <label>
                     Data e hora
                     <input type="datetime-local" id="dateInput">
+                </label>
+                <label>
+                    Cor
+                    <select id="colorInput">
+                        <option value="blue" selected>Azul</option>
+                        <option value="purple">Roxo</option>
+                        <option value="green">Verde</option>
+                        <option value="orange">Laranja</option>
+                        <option value="red">Vermelho</option>
+                    </select>
+                </label>
+                <label>
+                    Prioridade
+                    <select id="priorityInput">
+                        <option value="low">Baixa</option>
+                        <option value="medium" selected>Média</option>
+                        <option value="high">Alta</option>
+                        <option value="critical">Crítica</option>
+                    </select>
                 </label>
             </div>
             <div class="form-actions">
@@ -361,9 +559,36 @@
         const eventFormWrapper = document.getElementById('eventFormWrapper');
         const descriptionInput = document.getElementById('descriptionInput');
         const dateInput = document.getElementById('dateInput');
+        const colorInput = document.getElementById('colorInput');
+        const priorityInput = document.getElementById('priorityInput');
         const saveBtn = document.getElementById('saveBtn');
+        const formTitle = document.getElementById('formTitle');
+        const totalEventsValue = document.getElementById('totalEvents');
+        const activeEventsValue = document.getElementById('activeEvents');
+        const expiredEventsValue = document.getElementById('expiredEvents');
+        const searchInput = document.getElementById('searchInput');
+        const statusFilter = document.getElementById('statusFilter');
+        const sortOrder = document.getElementById('sortOrder');
+        const themeSelect = document.getElementById('themeSelect');
 
         const events = [];
+        const storageKey = 'contagemRegressivaEventsV1';
+        let editingEventId = null;
+
+        const colors = {
+            blue: '#38bdf8',
+            purple: '#6366f1',
+            green: '#34d399',
+            orange: '#fbbf24',
+            red: '#f87171'
+        };
+
+        const priorityMap = {
+            low: { label: 'Baixa', order: 1 },
+            medium: { label: 'Média', order: 2 },
+            high: { label: 'Alta', order: 3 },
+            critical: { label: 'Crítica', order: 4 }
+        };
 
         function formatInputDate(date) {
             const pad = (n) => String(n).padStart(2, '0');
@@ -381,12 +606,20 @@
         }
 
         function initializeDefaults() {
+            const savedEvents = loadEvents();
+            if (savedEvents.length > 0) {
+                events.push(...savedEvents);
+                return;
+            }
+
             events.push({
                 id: makeId(),
                 description: 'Até 23:59 do dia atual',
                 date: endOfCurrentDayDate().toISOString(),
                 defaultEvent: true,
-                active: true
+                active: true,
+                color: 'blue',
+                priority: 'high'
             });
 
             events.push({
@@ -394,8 +627,26 @@
                 description: 'Até o final do ano',
                 date: endOfYearDate().toISOString(),
                 defaultEvent: true,
-                active: true
+                active: true,
+                color: 'purple',
+                priority: 'medium'
             });
+
+            saveEvents();
+        }
+
+        function loadEvents() {
+            try {
+                const raw = localStorage.getItem(storageKey);
+                if (!raw) return [];
+                return JSON.parse(raw);
+            } catch (error) {
+                return [];
+            }
+        }
+
+        function saveEvents() {
+            localStorage.setItem(storageKey, JSON.stringify(events));
         }
 
         function makeId() {
@@ -403,12 +654,14 @@
         }
 
         function renderEvents() {
+            const filtered = getFilteredAndSortedEvents();
             eventList.innerHTML = '';
 
-            for (const event of events) {
+            for (const event of filtered) {
                 const card = document.createElement('article');
                 card.className = event.active === false ? 'event-card inactive' : 'event-card';
                 card.dataset.id = event.id;
+                card.style.borderLeft = `4px solid ${colors[event.color] || colors.blue}`;
 
                 const targetTime = new Date(event.date).getTime();
                 const difference = targetTime - Date.now();
@@ -417,9 +670,21 @@
                 const info = document.createElement('div');
                 info.className = 'event-info';
 
+                const descWrap = document.createElement('div');
+                descWrap.style.display = 'flex';
+                descWrap.style.flexDirection = 'column';
+                descWrap.style.gap = '8px';
+
                 const desc = document.createElement('div');
                 desc.className = 'event-description';
                 desc.innerHTML = event.description;
+
+                const priority = document.createElement('div');
+                priority.className = `priority-tag priority-${event.priority || 'low'}`;
+                priority.innerHTML = `Prioridade ${priorityMap[event.priority || 'low'].label}`;
+
+                descWrap.appendChild(desc);
+                descWrap.appendChild(priority);
 
                 const dateText = document.createElement('div');
                 dateText.className = 'event-date';
@@ -431,7 +696,7 @@
                     minute: '2-digit'
                 });
 
-                info.appendChild(desc);
+                info.appendChild(descWrap);
                 info.appendChild(dateText);
 
                 const grid = document.createElement('div');
@@ -472,6 +737,15 @@
                     grid.appendChild(timeCard);
                 }
 
+                const progressWrap = document.createElement('div');
+                progressWrap.className = 'progress-line';
+                const progressBar = document.createElement('div');
+                progressBar.className = 'progress-bar';
+                const totalDuration = Math.max(1, new Date(event.date).getTime() - new Date().getTime() + 10000);
+                const elapsed = Math.min(100, Math.max(4, Math.round(100 - (difference / Math.max(totalDuration, 1)) * 100)));
+                progressBar.style.width = `${Math.max(8, Math.min(100, elapsed))}%`;
+                progressWrap.appendChild(progressBar);
+
                 const actions = document.createElement('div');
                 actions.className = 'event-actions';
 
@@ -479,23 +753,91 @@
                 status.className = eventDone ? 'event-status status-finished' : 'event-status';
                 status.innerHTML = eventDone ? 'Expirado' : 'Ativo';
 
+                const actionGroup = document.createElement('div');
+                actionGroup.className = 'event-action-group';
+
                 const toggle = document.createElement('button');
                 toggle.type = 'button';
                 toggle.className = event.active === false ? 'toggle-btn disabled' : 'toggle-btn';
                 toggle.innerHTML = event.active === false ? 'Ativar' : 'Desativar';
                 toggle.addEventListener('click', () => {
                     event.active = event.active === false ? true : false;
+                    saveEvents();
                     renderEvents();
                 });
 
+                const edit = document.createElement('button');
+                edit.type = 'button';
+                edit.className = 'event-action-btn';
+                edit.innerHTML = 'Editar';
+                edit.addEventListener('click', () => {
+                    openFormForEdit(event.id);
+                });
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.type = 'button';
+                deleteBtn.className = 'event-action-btn delete';
+                deleteBtn.innerHTML = 'Excluir';
+                deleteBtn.addEventListener('click', () => {
+                    const idx = events.findIndex(item => item.id === event.id);
+                    if (idx >= 0) {
+                        events.splice(idx, 1);
+                        saveEvents();
+                        renderEvents();
+                    }
+                });
+
+                actionGroup.appendChild(toggle);
+                actionGroup.appendChild(edit);
+                actionGroup.appendChild(deleteBtn);
+
                 actions.appendChild(status);
-                actions.appendChild(toggle);
+                actions.appendChild(actionGroup);
 
                 card.appendChild(info);
                 card.appendChild(grid);
+                card.appendChild(progressWrap);
                 card.appendChild(actions);
                 eventList.appendChild(card);
             }
+
+            renderStats();
+        }
+
+        function getFilteredAndSortedEvents() {
+            const query = (searchInput.value || '').trim().toLowerCase();
+            const filter = statusFilter.value || 'all';
+            const sort = sortOrder.value || 'soonest';
+
+            let filtered = events.filter(event => {
+                const matchesQuery = !query || event.description.toLowerCase().includes(query);
+                const isExpired = new Date(event.date).getTime() < Date.now();
+                const active = event.active !== false;
+
+                if (!matchesQuery) return false;
+
+                if (filter === 'active') return active && !isExpired;
+                if (filter === 'inactive') return !active;
+                if (filter === 'expired') return isExpired;
+                return true;
+            });
+
+            filtered.sort((a, b) => {
+                if (sort === 'latest') return new Date(a.date) - new Date(b.date);
+                if (sort === 'priority') return (priorityMap[b.priority || 'low'].order || 0) - (priorityMap[a.priority || 'low'].order || 0);
+                if (sort === 'alphabetical') return a.description.localeCompare(b.description);
+                return new Date(a.date) - new Date(b.date);
+            });
+
+            return filtered;
+        }
+
+        function renderStats() {
+            const expired = events.filter(event => new Date(event.date).getTime() < Date.now()).length;
+            const active = events.filter(event => event.active && new Date(event.date).getTime() >= Date.now()).length;
+            totalEventsValue.innerHTML = String(events.length);
+            activeEventsValue.innerHTML = String(active);
+            expiredEventsValue.innerHTML = String(expired);
         }
 
         function calculateCountdown(targetTime) {
@@ -515,14 +857,40 @@
             return { weeks, days, hours, minutes, seconds };
         }
 
+        function openFormForEdit(id) {
+            const event = events.find(item => item.id === id);
+            if (!event) return;
+
+            editingEventId = id;
+            eventFormWrapper.classList.add('open');
+            formTitle.innerHTML = 'Editar evento';
+            saveBtn.innerHTML = 'Salvar';
+            descriptionInput.value = event.description;
+            dateInput.value = formatInputDate(new Date(event.date));
+            colorInput.value = event.color || 'blue';
+            priorityInput.value = event.priority || 'medium';
+        }
+
+        function resetForm() {
+            eventFormWrapper.classList.remove('open');
+            formTitle.innerHTML = 'Adicionar evento';
+            saveBtn.innerHTML = 'Confirmar';
+            descriptionInput.value = '';
+            dateInput.value = formatInputDate(new Date());
+            colorInput.value = 'blue';
+            priorityInput.value = 'medium';
+            editingEventId = null;
+        }
+
         openFormBtn.addEventListener('click', () => {
             eventFormWrapper.classList.toggle('open');
+            if (!eventFormWrapper.classList.contains('open')) {
+                resetForm();
+            }
         });
 
         cancelBtn.addEventListener('click', () => {
-            eventFormWrapper.classList.remove('open');
-            descriptionInput.value = '';
-            dateInput.value = '';
+            resetForm();
         });
 
         saveBtn.addEventListener('click', () => {
@@ -534,22 +902,55 @@
                 return;
             }
 
-            events.unshift({
-                id: makeId(),
-                description,
-                date: date.toISOString(),
-                defaultEvent: false,
-                active: true
-            });
+            if (editingEventId) {
+                const event = events.find(item => item.id === editingEventId);
+                if (event) {
+                    event.description = description;
+                    event.date = date.toISOString();
+                    event.color = colorInput.value || 'blue';
+                    event.priority = priorityInput.value || 'medium';
+                }
+            } else {
+                events.unshift({
+                    id: makeId(),
+                    description,
+                    date: date.toISOString(),
+                    defaultEvent: false,
+                    active: true,
+                    color: colorInput.value || 'blue',
+                    priority: priorityInput.value || 'medium'
+                });
+            }
 
-            descriptionInput.value = '';
-            dateInput.value = '';
-            eventFormWrapper.classList.remove('open');
+            saveEvents();
+            resetForm();
             renderEvents();
         });
 
+        searchInput.addEventListener('input', renderEvents);
+        statusFilter.addEventListener('change', renderEvents);
+        sortOrder.addEventListener('change', renderEvents);
+        themeSelect.addEventListener('change', applyTheme);
+
+        function applyTheme() {
+            const selected = themeSelect.value || 'blue';
+            const themes = {
+                blue: { '--blue': '#38bdf8', '--purple': '#6366f1', '--green': '#34d399', '--danger': '#f87171' },
+                violet: { '--blue': '#8b5cf6', '--purple': '#ec4899', '--green': '#34d399', '--danger': '#f87171' },
+                green: { '--blue': '#22c55e', '--purple': '#14b8a6', '--green': '#bef264', '--danger': '#f87171' },
+                mono: { '--blue': '#cbd5e1', '--purple': '#94a3b8', '--green': '#e2e8f0', '--danger': '#f87171' }
+            };
+
+            const selectedTheme = themes[selected] || themes.blue;
+            const root = document.documentElement;
+            Object.entries(selectedTheme).forEach(([key, value]) => {
+                root.style.setProperty(key, value);
+            });
+        }
+
         initializeDefaults();
         dateInput.value = formatInputDate(new Date());
+        applyTheme();
         renderEvents();
         setInterval(renderEvents, 1000);
     </script>
