@@ -25,6 +25,7 @@ const themeSelect = document.getElementById('themeSelect');
 
 const events = [];
 const storageKey = 'contagemRegressivaEventsV1';
+const preferencesStorageKey = 'contagemRegressivaPreferencesV1';
 let editingEventId = null;
 
 const colors = {
@@ -140,6 +141,49 @@ function saveEvents() {
 }
 
 /**
+ * Restaura preferências de apresentação e filtros salvas localmente.
+ */
+function loadPreferences() {
+    try {
+        const preferences = JSON.parse(localStorage.getItem(preferencesStorageKey) || '{}');
+        const validFilters = ['all', 'active', 'inactive', 'expired'];
+        const validSortOrders = ['soonest', 'latest', 'priority', 'alphabetical'];
+        const validThemes = ['blue', 'violet', 'green', 'mono'];
+
+        if (validFilters.includes(preferences.statusFilter)) {
+            statusFilter.value = preferences.statusFilter;
+        }
+        if (validSortOrders.includes(preferences.sortOrder)) {
+            sortOrder.value = preferences.sortOrder;
+        }
+        if (validThemes.includes(preferences.theme)) {
+            themeSelect.value = preferences.theme;
+        }
+        if (typeof preferences.search === 'string') {
+            searchInput.value = preferences.search;
+        }
+    } catch (error) {
+        console.warn('Não foi possível carregar as preferências salvas.', error);
+    }
+}
+
+/**
+ * Persiste as preferências atuais de visualização.
+ */
+function savePreferences() {
+    try {
+        localStorage.setItem(preferencesStorageKey, JSON.stringify({
+            statusFilter: statusFilter.value,
+            sortOrder: sortOrder.value,
+            theme: themeSelect.value,
+            search: searchInput.value
+        }));
+    } catch (error) {
+        console.warn('Não foi possível salvar as preferências.', error);
+    }
+}
+
+/**
  * Cria identificador de evento simples e único.
  * @returns {string}
  */
@@ -183,6 +227,37 @@ function renderEvents() {
         descWrap.appendChild(desc);
         descWrap.appendChild(priority);
 
+        const eventMeta = document.createElement('div');
+        eventMeta.className = 'event-meta';
+
+        const totalCountdown = document.createElement('div');
+        totalCountdown.className = 'event-total-countdown';
+        totalCountdown.setAttribute('aria-label', 'Tempo restante total em dias, horas, minutos e segundos');
+
+        const totalCountdownLabel = document.createElement('span');
+        totalCountdownLabel.className = 'event-total-label';
+        totalCountdownLabel.textContent = eventDone ? 'Prazo encerrado' : 'Total restante';
+        totalCountdown.appendChild(totalCountdownLabel);
+
+        const totalCountdownUnits = document.createElement('div');
+        totalCountdownUnits.className = 'event-total-units';
+        const totalCountdownValues = calculateTotalCountdown(targetTime);
+        for (const unit of [
+            { value: totalCountdownValues.days, label: 'd' },
+            { value: totalCountdownValues.hours, label: 'h' },
+            { value: totalCountdownValues.minutes, label: 'min' },
+            { value: totalCountdownValues.seconds, label: 'seg' }
+        ]) {
+            const unitElement = document.createElement('span');
+            const valueElement = document.createElement('strong');
+            valueElement.textContent = String(unit.value).padStart(unit.label === 'd' ? 1 : 2, '0');
+            const labelElement = document.createElement('small');
+            labelElement.textContent = unit.label;
+            unitElement.append(valueElement, labelElement);
+            totalCountdownUnits.appendChild(unitElement);
+        }
+        totalCountdown.appendChild(totalCountdownUnits);
+
         const dateText = document.createElement('div');
         dateText.className = 'event-date';
         dateText.innerHTML = new Date(event.date).toLocaleString('pt-BR', {
@@ -193,8 +268,9 @@ function renderEvents() {
             minute: '2-digit'
         });
 
+        eventMeta.append(totalCountdown, dateText);
         info.appendChild(descWrap);
-        info.appendChild(dateText);
+        info.appendChild(eventMeta);
 
         const grid = document.createElement('div');
         grid.className = 'countdown-grid';
@@ -399,6 +475,23 @@ function calculateCountdown(targetTime) {
 }
 
 /**
+ * Calcula o tempo restante com dias totais, sem converter em semanas ou meses.
+ * @param {number} targetTime
+ * @returns {{days: number, hours: number, minutes: number, seconds: number}}
+ */
+function calculateTotalCountdown(targetTime) {
+    const totalSeconds = Math.max(0, Math.floor((targetTime - Date.now()) / 1000));
+    const secondsPerDay = 24 * 60 * 60;
+
+    return {
+        days: Math.floor(totalSeconds / secondsPerDay),
+        hours: Math.floor((totalSeconds % secondsPerDay) / 3600),
+        minutes: Math.floor((totalSeconds % 3600) / 60),
+        seconds: totalSeconds % 60
+    };
+}
+
+/**
  * Abre o formulário de edição para um item já existente.
  * @param {string} id
  */
@@ -479,10 +572,22 @@ saveBtn.addEventListener('click', () => {
     renderEvents();
 });
 
-searchInput.addEventListener('input', renderEvents);
-statusFilter.addEventListener('change', renderEvents);
-sortOrder.addEventListener('change', renderEvents);
-themeSelect.addEventListener('change', applyTheme);
+searchInput.addEventListener('input', () => {
+    savePreferences();
+    renderEvents();
+});
+statusFilter.addEventListener('change', () => {
+    savePreferences();
+    renderEvents();
+});
+sortOrder.addEventListener('change', () => {
+    savePreferences();
+    renderEvents();
+});
+themeSelect.addEventListener('change', () => {
+    savePreferences();
+    applyTheme();
+});
 
 /**
  * Atualiza as variáveis de cor no documento conforme o tema escolhido.
@@ -504,6 +609,7 @@ function applyTheme() {
 }
 
 initializeDefaults();
+loadPreferences();
 dateInput.value = formatInputDate(new Date());
 applyTheme();
 renderEvents();
