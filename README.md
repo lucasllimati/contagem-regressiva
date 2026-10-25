@@ -2,6 +2,10 @@
 
 Aplicação estática de lista de eventos com contagem regressiva, filtros, ordenação, temas e persistência no navegador.
 
+**Acesse online:** https://lucasllimati.github.io/contagem-regressiva/
+
+Publicado com GitHub Pages a partir da branch `main`. Cada push na `main` atualiza o site em alguns minutos.
+
 ## Estrutura
 
 ```text
