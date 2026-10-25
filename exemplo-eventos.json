@@ -1,55 +1,48 @@
 {
   "app": "contagem-regressiva",
   "version": 1,
-  "exportedAt": "2026-10-25T12:00:00.000Z",
+  "instrucoes": {
+    "obrigatorios": "description e date. Os demais campos são opcionais.",
+    "date": "Data ISO 8601, ex.: 2026-12-24T20:00:00-03:00",
+    "color": "blue | purple | green | orange | red",
+    "priority": "low | medium | high | critical",
+    "recurrence": "none | daily | weekly | monthly | yearly",
+    "reminderSeconds": "0 (sem lembrete) | 300 (5 min) | 3600 (1 h) | 86400 (1 dia)",
+    "link": "Endereço começando com http:// ou https://"
+  },
   "events": [
     {
-      "id": "exemplo-entrega-projeto",
       "description": "Entrega do projeto",
-      "date": "2026-11-15T18:00:00.000Z",
-      "defaultEvent": false,
-      "active": true,
-      "color": "blue",
-      "priority": "high",
-      "createdAt": "2026-10-25T12:00:00.000Z",
+      "date": "2026-11-15T15:00:00-03:00",
       "category": "Trabalho",
-      "notes": "Revisar o documento final e confirmar os anexos antes do envio.",
-      "link": "https://example.com/projeto",
+      "priority": "high",
+      "color": "blue",
       "recurrence": "none",
       "reminderSeconds": 3600,
-      "reminderSentFor": ""
+      "notes": "Revisar o documento final e confirmar os anexos antes do envio.",
+      "link": "https://example.com/projeto"
     },
     {
-      "id": "exemplo-reuniao-semanal",
       "description": "Reunião de planejamento",
-      "date": "2026-10-30T14:00:00.000Z",
-      "defaultEvent": false,
-      "active": true,
-      "color": "green",
-      "priority": "medium",
-      "createdAt": "2026-10-25T12:00:00.000Z",
+      "date": "2026-10-30T11:00:00-03:00",
       "category": "Equipe",
-      "notes": "Preparar os principais tópicos da semana.",
-      "link": "https://example.com/reuniao",
+      "priority": "medium",
+      "color": "green",
       "recurrence": "weekly",
       "reminderSeconds": 300,
-      "reminderSentFor": ""
+      "notes": "Preparar os principais tópicos da semana.",
+      "link": "https://example.com/reuniao"
     },
     {
-      "id": "exemplo-pagamento-mensal",
       "description": "Pagamento mensal",
-      "date": "2026-11-05T12:00:00.000Z",
-      "defaultEvent": false,
-      "active": true,
-      "color": "orange",
-      "priority": "critical",
-      "createdAt": "2026-10-25T12:00:00.000Z",
+      "date": "2026-11-05T09:00:00-03:00",
       "category": "Pessoal",
-      "notes": "Conferir o valor e guardar o comprovante.",
-      "link": "",
+      "priority": "critical",
+      "color": "orange",
       "recurrence": "monthly",
       "reminderSeconds": 86400,
-      "reminderSentFor": ""
+      "notes": "Conferir o valor e guardar o comprovante.",
+      "link": ""
     }
   ]
 }

@@ -3,82 +3,99 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Contagem Regressiva Profissional</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <title>Contagem Regressiva</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="app">
         <header class="app-header">
             <div class="brand">
-                <div class="brand-icon">⏱</div>
-                <div>
-                    <h1 class="brand-title">Contagem Regressiva</h1>
-                    <div class="brand-subtitle">Lista de eventos e prazos</div>
-                </div>
+                <h1 class="brand-title">Contagem regressiva</h1>
+                <p class="brand-subtitle">Seus prazos e datas importantes, em tempo real.</p>
             </div>
-            <button class="primary-btn" id="openFormBtn" type="button" aria-expanded="false" aria-controls="eventFormWrapper">+ Novo evento</button>
+            <button class="btn btn-primary" id="openFormBtn" type="button" aria-haspopup="dialog">Novo evento</button>
         </header>
 
-        <section class="stats-strip">
-            <div class="stat-card">
-                <div class="stat-label">Eventos</div>
-                <div class="stat-value" id="totalEvents">0</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">Ativos</div>
-                <div class="stat-value" id="activeEvents">0</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">Expirados</div>
-                <div class="stat-value" id="expiredEvents">0</div>
-            </div>
+        <section class="periods" aria-labelledby="periodsTitle">
+            <h2 class="visually-hidden" id="periodsTitle">Períodos</h2>
+            <div class="period-grid" id="periodList"></div>
         </section>
 
-        <section class="toolbar" aria-label="Ferramentas para eventos">
-            <div class="toolbar-left">
-                <input type="search" id="searchInput" class="search-input" placeholder="Buscar evento..." aria-label="Buscar eventos">
-                <button class="tool-btn" id="exportBtn" type="button">Exportar backup</button>
-                <button class="tool-btn" id="importBtn" type="button">Importar backup</button>
-                <input id="importFileInput" type="file" accept="application/json,.json" hidden>
-                <button class="tool-btn" id="enableNotificationsBtn" type="button">Ativar lembretes</button>
+        <section class="events-section" aria-labelledby="eventsTitle">
+            <div class="section-head">
+                <h2 class="section-title" id="eventsTitle">Eventos</h2>
+                <p class="section-summary" id="eventSummary"></p>
             </div>
-            <div class="toolbar-right">
-                <select id="statusFilter" aria-label="Filtrar eventos por status">
+
+            <div class="toolbar" role="toolbar" aria-label="Ferramentas para eventos">
+                <input type="search" id="searchInput" class="control search-input" placeholder="Buscar por nome, categoria ou nota" aria-label="Buscar eventos">
+                <select id="statusFilter" class="control" aria-label="Filtrar eventos por status">
                     <option value="all" selected>Todos</option>
                     <option value="active">Ativos</option>
                     <option value="inactive">Desativados</option>
-                    <option value="expired">Expirados</option>
+                    <option value="expired">Encerrados</option>
                 </select>
-                <select id="sortOrder" aria-label="Ordenar eventos">
-                    <option value="soonest" selected>Mais próximo</option>
-                    <option value="latest">Mais distante</option>
+                <select id="sortOrder" class="control" aria-label="Ordenar eventos">
+                    <option value="soonest" selected>Mais próximos</option>
+                    <option value="latest">Mais distantes</option>
                     <option value="priority">Prioridade</option>
-                    <option value="alphabetical">Descrição A-Z</option>
+                    <option value="alphabetical">Nome A-Z</option>
                 </select>
-                <select id="themeSelect" aria-label="Tema de cores">
-                    <option value="blue" selected>Azul Profissional</option>
-                    <option value="violet">Violeta</option>
-                    <option value="green">Verde</option>
-                    <option value="mono">Mono</option>
-                </select>
+                <div class="toolbar-end">
+                    <details class="menu" id="dataMenu">
+                        <summary class="btn btn-secondary">Backup</summary>
+                        <div class="menu-panel">
+                            <button class="menu-item" id="exportBtn" type="button">Exportar eventos</button>
+                            <button class="menu-item" id="importBtn" type="button">Importar arquivo JSON</button>
+                            <button class="menu-item" id="templateBtn" type="button">Baixar modelo para preencher</button>
+                        </div>
+                    </details>
+                    <input id="importFileInput" type="file" accept="application/json,.json" hidden>
+                    <button class="btn btn-secondary" id="enableNotificationsBtn" type="button" aria-pressed="false">Ativar lembretes</button>
+                    <select id="themeSelect" class="control" aria-label="Tema de cores">
+                        <option value="blue" selected>Azul</option>
+                        <option value="violet">Violeta</option>
+                        <option value="green">Verde</option>
+                        <option value="mono">Monocromático</option>
+                    </select>
+                </div>
             </div>
-        </section>
 
-        <form class="event-form-wrapper" id="eventFormWrapper" novalidate>
-            <h2 class="form-title" id="formTitle">Adicionar evento</h2>
+            <div class="event-list" id="eventList"></div>
+        </section>
+    </div>
+
+    <dialog class="event-dialog" id="eventDialog" aria-labelledby="formTitle">
+        <form class="event-form" id="eventForm" novalidate>
+            <h2 class="form-title" id="formTitle">Novo evento</h2>
             <div class="form-grid">
-                <label>
-                    Descrição
-                    <input type="text" id="descriptionInput" placeholder="Ex.: Entrega do projeto" maxlength="120" required>
+                <label class="field form-field-wide">
+                    <span class="field-label">Nome</span>
+                    <input type="text" id="descriptionInput" class="control" placeholder="Ex.: Entrega do projeto" maxlength="120" required>
                 </label>
-                <label>
-                    Data e hora
-                    <input type="datetime-local" id="dateInput" required>
+                <label class="field">
+                    <span class="field-label">Data e hora</span>
+                    <input type="datetime-local" id="dateInput" class="control" required>
                 </label>
-                <label>
-                    Cor
-                    <select id="colorInput">
+                <label class="field">
+                    <span class="field-label">Categoria</span>
+                    <input type="text" id="categoryInput" class="control" placeholder="Ex.: Trabalho" maxlength="40">
+                </label>
+                <label class="field">
+                    <span class="field-label">Prioridade</span>
+                    <select id="priorityInput" class="control">
+                        <option value="low">Baixa</option>
+                        <option value="medium" selected>Média</option>
+                        <option value="high">Alta</option>
+                        <option value="critical">Crítica</option>
+                    </select>
+                </label>
+                <label class="field">
+                    <span class="field-label">Cor</span>
+                    <select id="colorInput" class="control">
                         <option value="blue" selected>Azul</option>
                         <option value="purple">Roxo</option>
                         <option value="green">Verde</option>
@@ -86,22 +103,9 @@
                         <option value="red">Vermelho</option>
                     </select>
                 </label>
-                <label>
-                    Prioridade
-                    <select id="priorityInput">
-                        <option value="low">Baixa</option>
-                        <option value="medium" selected>Média</option>
-                        <option value="high">Alta</option>
-                        <option value="critical">Crítica</option>
-                    </select>
-                </label>
-                <label>
-                    Categoria
-                    <input type="text" id="categoryInput" placeholder="Ex.: Trabalho, pessoal" maxlength="40">
-                </label>
-                <label>
-                    Repetir
-                    <select id="recurrenceInput">
+                <label class="field">
+                    <span class="field-label">Repetir</span>
+                    <select id="recurrenceInput" class="control">
                         <option value="none" selected>Não repetir</option>
                         <option value="daily">Diariamente</option>
                         <option value="weekly">Semanalmente</option>
@@ -109,34 +113,34 @@
                         <option value="yearly">Anualmente</option>
                     </select>
                 </label>
-                <label>
-                    Lembrete
-                    <select id="reminderInput">
+                <label class="field">
+                    <span class="field-label">Lembrete</span>
+                    <select id="reminderInput" class="control">
                         <option value="0" selected>Sem lembrete</option>
                         <option value="300">5 minutos antes</option>
                         <option value="3600">1 hora antes</option>
                         <option value="86400">1 dia antes</option>
                     </select>
                 </label>
-                <label class="form-field-wide">
-                    Notas
-                    <textarea id="notesInput" rows="3" maxlength="1000" placeholder="Detalhes importantes sobre este evento"></textarea>
+                <label class="field form-field-wide">
+                    <span class="field-label">Notas</span>
+                    <textarea id="notesInput" class="control" rows="3" maxlength="1000" placeholder="Detalhes importantes sobre este evento"></textarea>
                 </label>
-                <label class="form-field-wide">
-                    Link relacionado
-                    <input type="url" id="linkInput" placeholder="https://exemplo.com">
+                <label class="field form-field-wide">
+                    <span class="field-label">Link relacionado</span>
+                    <input type="url" id="linkInput" class="control" placeholder="https://exemplo.com">
                 </label>
             </div>
             <div class="form-actions">
-                <button class="secondary-btn" id="cancelBtn" type="button">Cancelar</button>
-                <button class="primary-btn" id="saveBtn" type="submit">Confirmar</button>
+                <button class="btn btn-secondary" id="cancelBtn" type="button">Cancelar</button>
+                <button class="btn btn-primary" id="saveBtn" type="submit">Criar evento</button>
             </div>
         </form>
+    </dialog>
 
-        <section class="event-list" id="eventList" aria-label="Lista de eventos"></section>
-        <div class="app-message" id="appMessage" role="status" aria-live="polite" hidden></div>
-    </div>
+    <div class="app-message" id="appMessage" role="status" aria-live="polite" hidden></div>
 
+    <script src="data/eventos-fixos.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

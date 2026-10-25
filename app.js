@@ -1,14 +1,17 @@
-// Contagem Regressiva Profissional
+// Contagem Regressiva
 // Separação de responsabilidades:
 // 1) DOM hooks
-// 2) Estado em memória
-// 3) Persistência em localStorage
-// 4) Renderização com filtros, ordenação e contagem
+// 2) Estado em memória: eventos fixos (data/eventos-fixos.js) e eventos do usuário
+// 3) Persistência em localStorage (somente eventos do usuário e preferências)
+// 4) Renderização da estrutura e atualização dos números a cada segundo
 
+const periodList = document.getElementById('periodList');
 const eventList = document.getElementById('eventList');
+const eventSummary = document.getElementById('eventSummary');
 const openFormBtn = document.getElementById('openFormBtn');
+const eventDialog = document.getElementById('eventDialog');
+const eventForm = document.getElementById('eventForm');
 const cancelBtn = document.getElementById('cancelBtn');
-const eventFormWrapper = document.getElementById('eventFormWrapper');
 const descriptionInput = document.getElementById('descriptionInput');
 const dateInput = document.getElementById('dateInput');
 const colorInput = document.getElementById('colorInput');
@@ -20,34 +23,38 @@ const notesInput = document.getElementById('notesInput');
 const linkInput = document.getElementById('linkInput');
 const saveBtn = document.getElementById('saveBtn');
 const formTitle = document.getElementById('formTitle');
-const totalEventsValue = document.getElementById('totalEvents');
-const activeEventsValue = document.getElementById('activeEvents');
-const expiredEventsValue = document.getElementById('expiredEvents');
 const searchInput = document.getElementById('searchInput');
 const statusFilter = document.getElementById('statusFilter');
 const sortOrder = document.getElementById('sortOrder');
 const themeSelect = document.getElementById('themeSelect');
+const dataMenu = document.getElementById('dataMenu');
 const exportBtn = document.getElementById('exportBtn');
 const importBtn = document.getElementById('importBtn');
+const templateBtn = document.getElementById('templateBtn');
 const importFileInput = document.getElementById('importFileInput');
 const enableNotificationsBtn = document.getElementById('enableNotificationsBtn');
 const appMessage = document.getElementById('appMessage');
 
+const fixedConfig = window.FIXED_EVENTS || { periods: [], events: [] };
 const events = [];
+const fixedEvents = [];
+const periods = [];
+const cardRefs = new Map();
 const storageKey = 'contagemRegressivaEventsV1';
 const preferencesStorageKey = 'contagemRegressivaPreferencesV1';
 const validRecurrences = ['none', 'daily', 'weekly', 'monthly', 'yearly'];
 const validReminderIntervals = [0, 300, 3600, 86400];
+const validPeriods = ['day', 'month', 'year'];
 let editingEventId = null;
 let messageTimeout = null;
 let notificationsEnabled = false;
 
 const colors = {
-    blue: '#38bdf8',
-    purple: '#6366f1',
-    green: '#34d399',
-    orange: '#fbbf24',
-    red: '#f87171'
+    blue: '#4fb3ff',
+    purple: '#9b8cff',
+    green: '#4ade9b',
+    orange: '#f2b84b',
+    red: '#ff7a7a'
 };
 
 const priorityMap = {
@@ -57,104 +64,86 @@ const priorityMap = {
     critical: { label: 'Crítica', order: 4 }
 };
 
+const recurrenceLabels = {
+    daily: 'Repete diariamente',
+    weekly: 'Repete semanalmente',
+    monthly: 'Repete mensalmente',
+    yearly: 'Repete anualmente'
+};
+
+const themes = {
+    blue: { '--accent': '#4fb3ff', '--accent-strong': '#8fd0ff' },
+    violet: { '--accent': '#a78bfa', '--accent-strong': '#c9b8ff' },
+    green: { '--accent': '#4ade80', '--accent-strong': '#94f0b4' },
+    mono: { '--accent': '#d5dce6', '--accent-strong': '#ffffff' }
+};
+
+const pad2 = (n) => String(n).padStart(2, '0');
+
 /**
  * Converte uma data para o formato aceito pelo input datetime-local.
  * @param {Date} date
  * @returns {string}
  */
 function formatInputDate(date) {
-    const pad = (n) => String(n).padStart(2, '0');
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+    return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}T${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
+}
+
+function formatEventDate(date) {
+    return new Date(date).toLocaleString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+function plural(count, singular, pluralForm) {
+    return `${count} ${count === 1 ? singular : pluralForm}`;
 }
 
 /**
- * Define o fim do dia atual como data-hora de referência para evento padrão.
- * @returns {Date}
+ * Retorna todos os eventos exibidos na lista: fixos primeiro, depois os do usuário.
+ * @returns {Array<object>}
  */
-function endOfCurrentDayDate() {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+function allEvents() {
+    return [...fixedEvents, ...events];
 }
 
 /**
- * Define fim do ano atual como evento padrão.
- * @returns {Date}
+ * Carrega períodos e eventos fixos definidos em data/eventos-fixos.js.
  */
-function endOfYearDate() {
-    const now = new Date();
-    return new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
-}
-
-/**
- * Inicializa eventos padrão quando nenhum dado estiver salvo.
- */
-function initializeDefaults() {
-    const savedEvents = loadEvents();
-
-    if (savedEvents.length > 0) {
-        events.push(...savedEvents);
-        ensurePinnedGtaEvent();
-        saveEvents();
-        return;
+function loadFixedConfig() {
+    for (const period of fixedConfig.periods || []) {
+        if (!period || !validPeriods.includes(period.period) || typeof period.description !== 'string') continue;
+        periods.push({ id: String(period.id || period.period), description: period.description, period: period.period });
     }
 
-    events.push({
-        id: makeId(),
-        description: 'Até 23:59 do dia atual',
-        date: endOfCurrentDayDate().toISOString(),
-        defaultEvent: true,
-        active: true,
-        color: 'blue',
-        priority: 'high',
-        createdAt: new Date().toISOString()
-    });
-
-    events.push({
-        id: makeId(),
-        description: 'Até o final do ano',
-        date: endOfYearDate().toISOString(),
-        defaultEvent: true,
-        active: true,
-        color: 'purple',
-        priority: 'medium',
-        createdAt: new Date().toISOString()
-    });
-
-    ensurePinnedGtaEvent();
-    saveEvents();
-}
-
-function ensurePinnedGtaEvent() {
-    const existingGtaEvent = events.find(event =>
-        event.id === 'gta-vi-release' || event.description.trim().toLocaleLowerCase('pt-BR') === 'gta vi'
-    );
-
-    if (existingGtaEvent) {
-        existingGtaEvent.pinned = true;
-        return;
+    for (const rawEvent of fixedConfig.events || []) {
+        const event = normalizeEvent(rawEvent);
+        if (!event) continue;
+        event.fixed = true;
+        event.active = true;
+        fixedEvents.push(event);
     }
-
-    events.unshift({
-        id: 'gta-vi-release',
-        description: 'GTA VI',
-        date: new Date(2026, 10, 19, 0, 0, 0, 0).toISOString(),
-        defaultEvent: true,
-        active: true,
-        color: 'red',
-        priority: 'critical',
-        createdAt: new Date().toISOString(),
-        category: 'Games',
-        notes: 'Evento fixado: lançamento de GTA VI.',
-        link: '',
-        recurrence: 'none',
-        reminderSeconds: 0,
-        reminderSentFor: '',
-        pinned: true
-    });
 }
 
 /**
- * Recupera eventos do armazenamento local.
+ * Identifica eventos salvos por versões anteriores que agora vêm do arquivo de fixos
+ * (eventos padrão de dia/ano e o GTA VI que ficava direto no código).
+ * @param {object} event
+ * @returns {boolean}
+ */
+function isLegacyOrFixed(event) {
+    if (!event || typeof event !== 'object') return false;
+    const description = typeof event.description === 'string' ? event.description.trim().toLocaleLowerCase('pt-BR') : '';
+    return event.defaultEvent === true
+        || fixedEvents.some(fixed => fixed.id === event.id || fixed.description.toLocaleLowerCase('pt-BR') === description);
+}
+
+/**
+ * Recupera eventos do usuário do armazenamento local.
  * @returns {Array<object>}
  */
 function loadEvents() {
@@ -164,7 +153,7 @@ function loadEvents() {
 
         const parsed = JSON.parse(raw);
         if (!Array.isArray(parsed)) return [];
-        return parsed.map(normalizeEvent).filter(Boolean);
+        return parsed.filter(event => !isLegacyOrFixed(event)).map(normalizeEvent).filter(Boolean);
     } catch (error) {
         console.warn('Não foi possível carregar eventos salvos.', error);
         return [];
@@ -172,7 +161,7 @@ function loadEvents() {
 }
 
 /**
- * Salva eventos no armazenamento local com captura segura de falhas.
+ * Salva os eventos do usuário no armazenamento local com captura segura de falhas.
  */
 function saveEvents() {
     try {
@@ -190,7 +179,6 @@ function loadPreferences() {
         const preferences = JSON.parse(localStorage.getItem(preferencesStorageKey) || '{}');
         const validFilters = ['all', 'active', 'inactive', 'expired'];
         const validSortOrders = ['soonest', 'latest', 'priority', 'alphabetical'];
-        const validThemes = ['blue', 'violet', 'green', 'mono'];
 
         if (validFilters.includes(preferences.statusFilter)) {
             statusFilter.value = preferences.statusFilter;
@@ -198,7 +186,7 @@ function loadPreferences() {
         if (validSortOrders.includes(preferences.sortOrder)) {
             sortOrder.value = preferences.sortOrder;
         }
-        if (validThemes.includes(preferences.theme)) {
+        if (Object.hasOwn(themes, preferences.theme)) {
             themeSelect.value = preferences.theme;
         }
         if (typeof preferences.search === 'string') {
@@ -237,24 +225,21 @@ function normalizeEvent(event) {
     const parsedCreatedAt = new Date(event.createdAt);
     const recurrence = validRecurrences.includes(event.recurrence) ? event.recurrence : 'none';
     const reminderSeconds = Number(event.reminderSeconds);
-    const link = normalizeLink(event.link || '');
 
     return {
         id: typeof event.id === 'string' && event.id ? event.id : makeId(),
         description: event.description.trim().slice(0, 120),
         date: parsedDate.toISOString(),
-        defaultEvent: Boolean(event.defaultEvent),
         active: event.active !== false,
         color: Object.hasOwn(colors, event.color) ? event.color : 'blue',
         priority: Object.hasOwn(priorityMap, event.priority) ? event.priority : 'medium',
         createdAt: Number.isNaN(parsedCreatedAt.getTime()) ? new Date().toISOString() : parsedCreatedAt.toISOString(),
         category: typeof event.category === 'string' ? event.category.trim().slice(0, 40) : '',
         notes: typeof event.notes === 'string' ? event.notes.slice(0, 1000) : '',
-        link,
+        link: normalizeLink(event.link || ''),
         recurrence,
         reminderSeconds: validReminderIntervals.includes(reminderSeconds) ? reminderSeconds : 0,
-        reminderSentFor: typeof event.reminderSentFor === 'string' ? event.reminderSentFor : '',
-        pinned: Boolean(event.pinned)
+        reminderSentFor: typeof event.reminderSentFor === 'string' ? event.reminderSentFor : ''
     };
 }
 
@@ -277,14 +262,9 @@ function showMessage(message) {
     }, 5000);
 }
 
-function loadNotificationPreference() {
-    return notificationsEnabled;
-}
-
 function updateNotificationsButton() {
-    const enabled = loadNotificationPreference();
-    enableNotificationsBtn.textContent = enabled ? 'Desativar lembretes' : 'Ativar lembretes';
-    enableNotificationsBtn.setAttribute('aria-pressed', String(enabled));
+    enableNotificationsBtn.textContent = notificationsEnabled ? 'Desativar lembretes' : 'Ativar lembretes';
+    enableNotificationsBtn.setAttribute('aria-pressed', String(notificationsEnabled));
 }
 
 /**
@@ -295,322 +275,374 @@ function makeId() {
     return Math.random().toString(36).slice(2, 10);
 }
 
+function createElement(tag, className, text) {
+    const element = document.createElement(tag);
+    if (className) element.className = className;
+    if (text !== undefined) element.textContent = text;
+    return element;
+}
+
+/* ---------- Períodos (dia, mês, ano) ---------- */
+
+/**
+ * Calcula início e fim do período atual. O fim é a meia-noite que encerra o período.
+ * @param {'day'|'month'|'year'} period
+ * @param {Date} now
+ * @returns {{start: Date, end: Date}}
+ */
+function getPeriodRange(period, now = new Date()) {
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    if (period === 'day') {
+        const day = now.getDate();
+        return { start: new Date(year, month, day), end: new Date(year, month, day + 1) };
+    }
+    if (period === 'month') {
+        return { start: new Date(year, month, 1), end: new Date(year, month + 1, 1) };
+    }
+    return { start: new Date(year, 0, 1), end: new Date(year + 1, 0, 1) };
+}
+
+function getPeriodContext(period, now = new Date()) {
+    if (period === 'day') {
+        return now.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+    }
+    if (period === 'month') {
+        return now.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    }
+    return String(now.getFullYear());
+}
+
+const periodElapsedLabels = { day: 'do dia', month: 'do mês', year: 'do ano' };
+
+function renderPeriods() {
+    const now = new Date();
+    periodList.innerHTML = '';
+
+    for (const period of periods) {
+        const { start, end } = getPeriodRange(period.period, now);
+        const remaining = calculateTotalCountdown(end.getTime());
+        const elapsedPercent = Math.min(100, Math.max(0, ((now - start) / (end - start)) * 100));
+        const percent = Math.floor(elapsedPercent);
+
+        const tile = createElement('article', `period-tile period-${period.period}`);
+        tile.setAttribute('aria-label', period.description);
+
+        const head = createElement('div', 'period-head');
+        head.append(
+            createElement('h3', 'period-title', period.description),
+            createElement('p', 'period-context', getPeriodContext(period.period, now))
+        );
+
+        const clock = createElement('p', 'period-clock');
+        if (remaining.days > 0) {
+            const days = createElement('span', 'period-days', `${remaining.days}`);
+            days.appendChild(createElement('small', '', remaining.days === 1 ? ' dia' : ' dias'));
+            clock.appendChild(days);
+        }
+        clock.appendChild(createElement('span', 'period-time', `${pad2(remaining.hours)}:${pad2(remaining.minutes)}:${pad2(remaining.seconds)}`));
+
+        const progressLine = createElement('div', 'progress-line');
+        progressLine.setAttribute('role', 'progressbar');
+        progressLine.setAttribute('aria-label', `Quanto já passou ${periodElapsedLabels[period.period]}`);
+        progressLine.setAttribute('aria-valuemin', '0');
+        progressLine.setAttribute('aria-valuemax', '100');
+        progressLine.setAttribute('aria-valuenow', String(percent));
+        const progressBar = createElement('div', 'progress-bar');
+        progressBar.style.width = `${elapsedPercent}%`;
+        progressLine.appendChild(progressBar);
+
+        const caption = createElement('p', 'period-caption', `${percent}% ${periodElapsedLabels[period.period]} já passou`);
+
+        tile.append(head, clock, progressLine, caption);
+        periodList.appendChild(tile);
+    }
+}
+
+/* ---------- Eventos ---------- */
+
+function getVisibleUnits(count) {
+    const units = [
+        { key: 'weeks', value: count.weeks, label: ['semana', 'semanas'] },
+        { key: 'days', value: count.days, label: ['dia', 'dias'] },
+        { key: 'hours', value: count.hours, label: ['hora', 'horas'] },
+        { key: 'minutes', value: count.minutes, label: ['minuto', 'minutos'] },
+        { key: 'seconds', value: count.seconds, label: ['segundo', 'segundos'] }
+    ];
+
+    // Oculta unidades maiores zeradas, começando pela maior unidade com valor.
+    const firstIndex = units.findIndex(unit => unit.value > 0);
+    return units.slice(firstIndex === -1 ? units.length - 1 : firstIndex);
+}
+
+function formatUnitValue(unit, isLeading) {
+    return isLeading || unit.key === 'weeks' || unit.key === 'days' ? String(unit.value) : pad2(unit.value);
+}
+
+function getEventProgress(event, done) {
+    if (done) return 100;
+    const start = new Date(event.createdAt).getTime();
+    const target = new Date(event.date).getTime();
+    const total = Math.max(1, target - start);
+    return Math.min(99, Math.max(0, ((Date.now() - start) / total) * 100));
+}
+
+function formatTotalCountdown(targetTime) {
+    const total = calculateTotalCountdown(targetTime);
+    const clock = `${pad2(total.hours)}:${pad2(total.minutes)}:${pad2(total.seconds)}`;
+    return total.days > 0 ? `${plural(total.days, 'dia', 'dias')} e ${clock} no total` : `${clock} no total`;
+}
+
+/**
+ * Monta a assinatura visual de um cartão. Quando ela muda (ex.: a unidade "semanas" some
+ * ou o evento encerra), a lista é reconstruída; caso contrário, só os números mudam.
+ */
+function getCardSignature(event) {
+    const targetTime = new Date(event.date).getTime();
+    const done = targetTime - Date.now() <= 0;
+    const units = getVisibleUnits(calculateCountdown(targetTime)).map(unit => unit.key).join(',');
+    return `${done}|${units}`;
+}
+
 /**
  * Renderiza a lista de eventos com filtros e ordenação aplicados.
  */
 function renderEvents() {
-    checkReminders();
     if (advanceRecurringEvents()) saveEvents();
     const filtered = getFilteredAndSortedEvents();
     eventList.innerHTML = '';
+    cardRefs.clear();
 
     if (filtered.length === 0) {
-        const emptyState = document.createElement('div');
-        emptyState.className = 'empty-state';
-        const title = document.createElement('h2');
-        const description = document.createElement('p');
-        const hasEvents = events.length > 0;
-        title.textContent = hasEvents ? 'Nenhum evento encontrado' : 'Sua lista está vazia';
-        description.textContent = hasEvents
-            ? 'Ajuste a busca ou os filtros para encontrar seus eventos.'
-            : 'Crie um evento para começar a acompanhar seus prazos.';
-        emptyState.append(title, description);
-
-        if (hasEvents) {
-            const clearFiltersBtn = document.createElement('button');
-            clearFiltersBtn.type = 'button';
-            clearFiltersBtn.className = 'secondary-btn';
-            clearFiltersBtn.textContent = 'Limpar filtros';
-            clearFiltersBtn.addEventListener('click', () => {
-                searchInput.value = '';
-                statusFilter.value = 'all';
-                savePreferences();
-                renderEvents();
-            });
-            emptyState.appendChild(clearFiltersBtn);
-        }
-
-        eventList.appendChild(emptyState);
-        renderStats();
+        renderEmptyState();
+        renderSummary();
         return;
     }
 
     for (const event of filtered) {
-        const card = document.createElement('article');
-        card.className = `event-card${event.active === false ? ' inactive' : ''}${event.pinned ? ' pinned' : ''}`;
-        card.dataset.id = event.id;
-        card.setAttribute('aria-label', `Evento: ${event.description}`);
-        card.style.borderLeft = `4px solid ${colors[event.color] || colors.blue}`;
-
-        const targetTime = new Date(event.date).getTime();
-        const difference = targetTime - Date.now();
-        const eventDone = difference <= 0;
-
-        const info = document.createElement('div');
-        info.className = 'event-info';
-
-        const descWrap = document.createElement('div');
-        descWrap.style.display = 'flex';
-        descWrap.style.flexDirection = 'column';
-        descWrap.style.gap = '8px';
-
-        const desc = document.createElement('div');
-        desc.className = 'event-description';
-        desc.textContent = event.description;
-
-        if (event.pinned) {
-            const pinnedTag = document.createElement('span');
-            pinnedTag.className = 'pinned-tag';
-            pinnedTag.textContent = 'Fixado';
-            descWrap.appendChild(desc);
-            descWrap.appendChild(pinnedTag);
-        } else {
-            descWrap.appendChild(desc);
-        }
-
-        const priority = document.createElement('div');
-        priority.className = `priority-tag priority-${event.priority || 'low'}`;
-        priority.textContent = `Prioridade ${priorityMap[event.priority || 'medium'].label}`;
-
-        if (event.category) {
-            const category = document.createElement('span');
-            category.className = 'category-tag';
-            category.textContent = event.category;
-            descWrap.appendChild(category);
-        }
-        if (event.recurrence && event.recurrence !== 'none') {
-            const recurrenceLabels = {
-                daily: 'Repete diariamente',
-                weekly: 'Repete semanalmente',
-                monthly: 'Repete mensalmente',
-                yearly: 'Repete anualmente'
-            };
-            const recurrenceTag = document.createElement('span');
-            recurrenceTag.className = 'category-tag';
-            recurrenceTag.textContent = recurrenceLabels[event.recurrence];
-            descWrap.appendChild(recurrenceTag);
-        }
-        if (event.reminderSeconds > 0) {
-            const reminderTag = document.createElement('span');
-            reminderTag.className = 'category-tag';
-            reminderTag.textContent = `Lembrete: ${formatRemainingTime(event.reminderSeconds * 1000)} antes`;
-            descWrap.appendChild(reminderTag);
-        }
-        descWrap.appendChild(priority);
-
-        const eventMeta = document.createElement('div');
-        eventMeta.className = 'event-meta';
-
-        const totalCountdown = document.createElement('div');
-        totalCountdown.className = 'event-total-countdown';
-        totalCountdown.setAttribute('aria-label', 'Tempo restante total em dias, horas, minutos e segundos');
-
-        const totalCountdownLabel = document.createElement('span');
-        totalCountdownLabel.className = 'event-total-label';
-        totalCountdownLabel.textContent = eventDone ? 'Prazo encerrado' : 'Total restante';
-        totalCountdown.appendChild(totalCountdownLabel);
-
-        const totalCountdownUnits = document.createElement('div');
-        totalCountdownUnits.className = 'event-total-units';
-        const totalCountdownValues = calculateTotalCountdown(targetTime);
-        for (const unit of [
-            { value: totalCountdownValues.days, label: 'd' },
-            { value: totalCountdownValues.hours, label: 'h' },
-            { value: totalCountdownValues.minutes, label: 'min' },
-            { value: totalCountdownValues.seconds, label: 'seg' }
-        ]) {
-            const unitElement = document.createElement('span');
-            const valueElement = document.createElement('strong');
-            valueElement.textContent = String(unit.value).padStart(unit.label === 'd' ? 1 : 2, '0');
-            const labelElement = document.createElement('small');
-            labelElement.textContent = unit.label;
-            unitElement.append(valueElement, labelElement);
-            totalCountdownUnits.appendChild(unitElement);
-        }
-        totalCountdown.appendChild(totalCountdownUnits);
-
-        const dateText = document.createElement('div');
-        dateText.className = 'event-date';
-        dateText.innerHTML = new Date(event.date).toLocaleString('pt-BR', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-
-        eventMeta.append(totalCountdown, dateText);
-        info.appendChild(descWrap);
-        info.appendChild(eventMeta);
-
-        if (event.notes) {
-            const notes = document.createElement('p');
-            notes.className = 'event-notes';
-            notes.textContent = event.notes;
-            card.appendChild(notes);
-        }
-
-        if (event.link) {
-            const safeLink = normalizeLink(event.link);
-            if (safeLink) {
-                const link = document.createElement('a');
-                link.className = 'event-link';
-                link.href = safeLink;
-                link.target = '_blank';
-                link.rel = 'noopener noreferrer';
-                link.textContent = 'Abrir link relacionado';
-                card.appendChild(link);
-            }
-        }
-
-        const grid = document.createElement('div');
-        grid.className = 'countdown-grid';
-
-        const count = calculateCountdown(targetTime);
-        const units = [
-            { key: 'weeks', value: count.weeks, label: 'Semanas' },
-            { key: 'days', value: count.days, label: 'Dias' },
-            { key: 'hours', value: count.hours, label: 'Horas' },
-            { key: 'minutes', value: count.minutes, label: 'Minutos' },
-            { key: 'seconds', value: count.seconds, label: 'Segundos' }
-        ];
-
-        const visibleUnits = [];
-        for (const unit of units) {
-            if (unit.key === 'weeks' && unit.value === 0) continue;
-            if (unit.key === 'days' && unit.value === 0 && count.weeks === 0) continue;
-            if (unit.key === 'hours' && unit.value === 0 && count.days === 0 && count.weeks === 0) continue;
-            if (unit.key === 'minutes' && unit.value === 0 && count.hours === 0 && count.days === 0 && count.weeks === 0) continue;
-            visibleUnits.push(unit);
-        }
-
-        for (const unit of visibleUnits) {
-            const timeCard = document.createElement('div');
-            timeCard.className = 'time-card';
-
-            const value = document.createElement('div');
-            value.className = 'time-value';
-            value.innerHTML = unit.value;
-
-            const label = document.createElement('div');
-            label.className = 'time-label';
-            label.innerHTML = unit.label;
-
-            timeCard.appendChild(value);
-            timeCard.appendChild(label);
-            grid.appendChild(timeCard);
-        }
-
-        const progressWrap = document.createElement('div');
-        progressWrap.className = 'progress-wrapper';
-
-        const progressHead = document.createElement('div');
-        progressHead.className = 'progress-head';
-        const progressLabel = document.createElement('span');
-        progressLabel.innerHTML = eventDone ? 'Conclusão' : 'Progresso';
-        const progressPercent = document.createElement('span');
-        progressPercent.className = 'progress-percent';
-        progressHead.appendChild(progressLabel);
-        progressHead.appendChild(progressPercent);
-
-        const progressLine = document.createElement('div');
-        progressLine.className = 'progress-line';
-        progressLine.setAttribute('role', 'progressbar');
-        progressLine.setAttribute('aria-label', `Progresso até ${event.description}`);
-        progressLine.setAttribute('aria-valuemin', '0');
-        progressLine.setAttribute('aria-valuemax', '100');
-        const progressBar = document.createElement('div');
-        progressBar.className = 'progress-bar';
-        if (eventDone) {
-            progressBar.classList.add('finished');
-        }
-
-        const eventCreatedAt = event.createdAt ? new Date(event.createdAt).getTime() : Date.now();
-        const target = new Date(event.date).getTime();
-        const totalDuration = Math.max(1, target - eventCreatedAt);
-        const elapsed = Math.max(0, Date.now() - eventCreatedAt);
-        const rawProgress = eventDone ? 100 : Math.min(99, Math.max(0, (elapsed / totalDuration) * 100));
-        const progressPercentValue = Math.round(rawProgress);
-
-        progressBar.style.width = `${Math.max(0, Math.min(100, progressPercentValue))}%`;
-        progressPercent.innerHTML = `${progressPercentValue}%`;
-        progressLine.setAttribute('aria-valuenow', String(progressPercentValue));
-
-        if (eventDone) {
-            progressBar.style.width = '100%';
-            progressBar.classList.add('finished');
-            progressPercent.innerHTML = '100%';
-            progressLine.setAttribute('aria-valuenow', '100');
-        }
-
-        progressLine.appendChild(progressBar);
-        progressWrap.appendChild(progressHead);
-        progressWrap.appendChild(progressLine);
-
-        const actions = document.createElement('div');
-        actions.className = 'event-actions';
-
-        const status = document.createElement('div');
-        status.className = eventDone ? 'event-status status-finished' : 'event-status';
-        status.innerHTML = eventDone ? 'Expirado · Concluído' : 'Ativo';
-
-        const actionGroup = document.createElement('div');
-        actionGroup.className = 'event-action-group';
-
-        const toggle = document.createElement('button');
-        toggle.type = 'button';
-        toggle.className = event.pinned || event.active === false ? 'toggle-btn disabled' : 'toggle-btn';
-        toggle.innerHTML = event.pinned ? 'Fixado' : event.active === false ? 'Ativar' : 'Desativar';
-        toggle.disabled = event.pinned;
-        toggle.setAttribute('aria-label', event.pinned ? `${event.description} está fixado e não pode ser desativado` : `${event.active === false ? 'Ativar' : 'Desativar'} evento ${event.description}`);
-        toggle.addEventListener('click', () => {
-            event.active = event.active === false ? true : false;
-            saveEvents();
-            renderEvents();
-        });
-
-        const edit = document.createElement('button');
-        edit.type = 'button';
-        edit.className = 'event-action-btn';
-        edit.innerHTML = 'Editar';
-        edit.setAttribute('aria-label', `Editar evento ${event.description}`);
-        edit.addEventListener('click', () => {
-            openFormForEdit(event.id);
-        });
-
-        let deleteBtn = null;
-        if (!event.pinned) {
-            deleteBtn = document.createElement('button');
-            deleteBtn.type = 'button';
-            deleteBtn.className = 'event-action-btn delete';
-            deleteBtn.innerHTML = 'Excluir';
-            deleteBtn.setAttribute('aria-label', `Excluir evento ${event.description}`);
-            deleteBtn.addEventListener('click', () => {
-                if (!window.confirm(`Excluir o evento "${event.description}"?`)) return;
-                const idx = events.findIndex(item => item.id === event.id);
-                if (idx >= 0) {
-                    events.splice(idx, 1);
-                    saveEvents();
-                    renderEvents();
-                }
-            });
-        }
-
-        actionGroup.appendChild(toggle);
-        actionGroup.appendChild(edit);
-        if (deleteBtn) actionGroup.appendChild(deleteBtn);
-
-        actions.appendChild(status);
-        actions.appendChild(actionGroup);
-
-        card.appendChild(info);
-        card.appendChild(grid);
-        card.appendChild(progressWrap);
-        card.appendChild(actions);
-        eventList.appendChild(card);
+        eventList.appendChild(buildEventCard(event));
     }
 
-    renderStats();
+    renderSummary();
+}
+
+function renderEmptyState() {
+    const emptyState = createElement('div', 'empty-state');
+    const hasEvents = allEvents().length > 0;
+    emptyState.append(
+        createElement('h3', 'empty-title', hasEvents ? 'Nenhum evento encontrado' : 'Sua lista está vazia'),
+        createElement('p', 'empty-text', hasEvents
+            ? 'Ajuste a busca ou os filtros para encontrar seus eventos.'
+            : 'Crie um evento ou importe um arquivo JSON para começar.')
+    );
+
+    const action = createElement('button', 'btn btn-secondary', hasEvents ? 'Limpar filtros' : 'Novo evento');
+    action.type = 'button';
+    action.addEventListener('click', () => {
+        if (!hasEvents) {
+            openFormForCreate();
+            return;
+        }
+        searchInput.value = '';
+        statusFilter.value = 'all';
+        savePreferences();
+        renderEvents();
+    });
+    emptyState.appendChild(action);
+    eventList.appendChild(emptyState);
+}
+
+function buildEventCard(event) {
+    const targetTime = new Date(event.date).getTime();
+    const done = targetTime - Date.now() <= 0;
+    const inactive = event.active === false;
+
+    const card = createElement('article', 'event-card');
+    if (inactive) card.classList.add('inactive');
+    if (event.fixed) card.classList.add('fixed');
+    if (done) card.classList.add('done');
+    card.dataset.id = event.id;
+    card.setAttribute('aria-label', `Evento: ${event.description}`);
+    card.style.setProperty('--event-color', colors[event.color] || colors.blue);
+
+    // Cabeçalho: nome, etiquetas, data
+    const head = createElement('div', 'event-head');
+    const titleBlock = createElement('div', 'event-title-block');
+    titleBlock.appendChild(createElement('h3', 'event-title', event.description));
+
+    const tags = createElement('div', 'event-tags');
+    if (event.fixed) tags.appendChild(createElement('span', 'tag tag-fixed', 'Fixo'));
+    tags.appendChild(createElement('span', `tag tag-priority priority-${event.priority}`, `Prioridade ${priorityMap[event.priority].label.toLocaleLowerCase('pt-BR')}`));
+    if (event.category) tags.appendChild(createElement('span', 'tag', event.category));
+    if (event.recurrence !== 'none') tags.appendChild(createElement('span', 'tag', recurrenceLabels[event.recurrence]));
+    if (event.reminderSeconds > 0) {
+        tags.appendChild(createElement('span', 'tag', `Lembrete ${formatRemainingTime(event.reminderSeconds * 1000)} antes`));
+    }
+    titleBlock.appendChild(tags);
+
+    const when = createElement('div', 'event-when');
+    const time = createElement('time', 'event-date', formatEventDate(event.date));
+    time.dateTime = event.date;
+    const total = createElement('p', 'event-total', done ? 'Prazo encerrado' : formatTotalCountdown(targetTime));
+    when.append(time, total);
+    head.append(titleBlock, when);
+
+    // Contagem
+    const countdown = createElement('div', 'countdown');
+    countdown.setAttribute('aria-label', 'Tempo restante');
+    const unitRefs = new Map();
+    const visibleUnits = getVisibleUnits(calculateCountdown(targetTime));
+    visibleUnits.forEach((unit, index) => {
+        const unitElement = createElement('div', 'countdown-unit');
+        const value = createElement('span', 'countdown-value', formatUnitValue(unit, index === 0));
+        const label = createElement('span', 'countdown-label', unit.label[unit.value === 1 ? 0 : 1]);
+        unitElement.append(value, label);
+        countdown.appendChild(unitElement);
+        unitRefs.set(unit.key, { value, label, isLeading: index === 0 });
+    });
+
+    // Progresso
+    const progressPercentValue = Math.round(getEventProgress(event, done));
+    const progress = createElement('div', 'progress');
+    const progressHead = createElement('div', 'progress-head');
+    const progressPercent = createElement('span', 'progress-percent', `${progressPercentValue}%`);
+    progressHead.append(createElement('span', '', done ? 'Concluído' : 'Progresso'), progressPercent);
+    const progressLine = createElement('div', 'progress-line');
+    progressLine.setAttribute('role', 'progressbar');
+    progressLine.setAttribute('aria-label', `Progresso até ${event.description}`);
+    progressLine.setAttribute('aria-valuemin', '0');
+    progressLine.setAttribute('aria-valuemax', '100');
+    progressLine.setAttribute('aria-valuenow', String(progressPercentValue));
+    const progressBar = createElement('div', 'progress-bar');
+    progressBar.style.width = `${progressPercentValue}%`;
+    progressLine.appendChild(progressBar);
+    progress.append(progressHead, progressLine);
+
+    // Evento encerrado não mostra contagem zerada; o progresso já indica a conclusão.
+    card.append(head);
+    if (!done) card.appendChild(countdown);
+    card.appendChild(progress);
+
+    if (event.notes) card.appendChild(createElement('p', 'event-notes', event.notes));
+
+    const safeLink = normalizeLink(event.link);
+    if (safeLink) {
+        const link = createElement('a', 'event-link', 'Abrir link relacionado');
+        link.href = safeLink;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        card.appendChild(link);
+    }
+
+    card.appendChild(buildEventFooter(event, done, inactive));
+
+    cardRefs.set(event.id, {
+        event,
+        signature: getCardSignature(event),
+        unitRefs,
+        total,
+        progressBar,
+        progressPercent,
+        progressLine
+    });
+
+    return card;
+}
+
+function buildEventFooter(event, done, inactive) {
+    const footer = createElement('div', 'event-footer');
+    let statusText = 'Ativo';
+    let statusClass = 'status-active';
+    if (done) {
+        statusText = 'Encerrado';
+        statusClass = 'status-done';
+    } else if (inactive) {
+        statusText = 'Desativado';
+        statusClass = 'status-inactive';
+    }
+    footer.appendChild(createElement('span', `event-status ${statusClass}`, statusText));
+
+    const actions = createElement('div', 'event-actions');
+    if (event.fixed) {
+        const note = createElement('span', 'event-fixed-note', 'Evento fixo');
+        note.title = 'Altere em data/eventos-fixos.js';
+        actions.appendChild(note);
+        footer.appendChild(actions);
+        return footer;
+    }
+
+    const toggle = createElement('button', 'btn btn-ghost btn-sm', inactive ? 'Ativar' : 'Desativar');
+    toggle.type = 'button';
+    toggle.setAttribute('aria-label', `${inactive ? 'Ativar' : 'Desativar'} evento ${event.description}`);
+    toggle.addEventListener('click', () => {
+        event.active = inactive;
+        saveEvents();
+        renderEvents();
+    });
+
+    const edit = createElement('button', 'btn btn-ghost btn-sm', 'Editar');
+    edit.type = 'button';
+    edit.setAttribute('aria-label', `Editar evento ${event.description}`);
+    edit.addEventListener('click', () => openFormForEdit(event.id));
+
+    const deleteBtn = createElement('button', 'btn btn-ghost btn-sm btn-danger', 'Excluir');
+    deleteBtn.type = 'button';
+    deleteBtn.setAttribute('aria-label', `Excluir evento ${event.description}`);
+    deleteBtn.addEventListener('click', () => {
+        if (!window.confirm(`Excluir o evento "${event.description}"?`)) return;
+        const idx = events.findIndex(item => item.id === event.id);
+        if (idx >= 0) {
+            events.splice(idx, 1);
+            saveEvents();
+            renderEvents();
+            showMessage(`Evento "${event.description}" excluído.`);
+        }
+    });
+
+    actions.append(toggle, edit, deleteBtn);
+    footer.appendChild(actions);
+    return footer;
+}
+
+/**
+ * Atualiza apenas os números dos cartões já renderizados, preservando o foco do teclado.
+ * Reconstrói a lista quando a estrutura de algum cartão precisa mudar.
+ */
+function tick() {
+    renderPeriods();
+    checkReminders();
+
+    if (advanceRecurringEvents()) {
+        saveEvents();
+        renderEvents();
+        return;
+    }
+
+    for (const refs of cardRefs.values()) {
+        if (getCardSignature(refs.event) !== refs.signature) {
+            renderEvents();
+            return;
+        }
+    }
+
+    for (const refs of cardRefs.values()) {
+        const targetTime = new Date(refs.event.date).getTime();
+        const done = targetTime - Date.now() <= 0;
+        for (const unit of getVisibleUnits(calculateCountdown(targetTime))) {
+            const unitRef = refs.unitRefs.get(unit.key);
+            if (!unitRef) continue;
+            unitRef.value.textContent = formatUnitValue(unit, unitRef.isLeading);
+            unitRef.label.textContent = unit.label[unit.value === 1 ? 0 : 1];
+        }
+        if (!done) refs.total.textContent = formatTotalCountdown(targetTime);
+
+        const percent = Math.round(getEventProgress(refs.event, done));
+        refs.progressBar.style.width = `${percent}%`;
+        refs.progressPercent.textContent = `${percent}%`;
+        refs.progressLine.setAttribute('aria-valuenow', String(percent));
+    }
+
+    renderSummary();
 }
 
 function nextOccurrence(date, recurrence) {
@@ -636,7 +668,7 @@ function nextOccurrence(date, recurrence) {
 
 function advanceRecurringEvents(now = Date.now()) {
     let changed = false;
-    for (const event of events) {
+    for (const event of allEvents()) {
         if (!validRecurrences.includes(event.recurrence) || event.recurrence === 'none') continue;
         let target = new Date(event.date);
         let safetyCount = 0;
@@ -669,11 +701,11 @@ function advanceRecurringEvents(now = Date.now()) {
 }
 
 function checkReminders() {
-    if (!loadNotificationPreference() || !('Notification' in window) || Notification.permission !== 'granted') return;
+    if (!notificationsEnabled || !('Notification' in window) || Notification.permission !== 'granted') return;
 
     const now = Date.now();
     let changed = false;
-    for (const event of events) {
+    for (const event of allEvents()) {
         const reminderSeconds = Number(event.reminderSeconds) || 0;
         if (!event.active || reminderSeconds <= 0) continue;
 
@@ -709,29 +741,97 @@ function formatRemainingTime(milliseconds) {
     if (totalMinutes < 60) return `${totalMinutes} min`;
     const hours = Math.ceil(totalMinutes / 60);
     if (hours < 24) return `${hours} h`;
-    return `${Math.ceil(hours / 24)} dia(s)`;
+    return plural(Math.ceil(hours / 24), 'dia', 'dias');
+}
+
+/* ---------- Importação, exportação e modelo ---------- */
+
+function downloadJson(data, fileName) {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const download = document.createElement('a');
+    download.href = url;
+    download.download = fileName;
+    download.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function exportEvents() {
-    const backup = {
+    downloadJson({
         app: 'contagem-regressiva',
         version: 1,
         exportedAt: new Date().toISOString(),
         events
+    }, `contagem-regressiva-${new Date().toISOString().slice(0, 10)}.json`);
+    showMessage(`${plural(events.length, 'evento exportado', 'eventos exportados')}. Eventos fixos ficam em data/eventos-fixos.js.`);
+}
+
+/**
+ * Gera um arquivo modelo com exemplos de datas futuras e a lista de valores aceitos.
+ * Apenas "description" e "date" são obrigatórios.
+ */
+function downloadTemplate() {
+    const inDays = (days, hour) => {
+        const date = new Date();
+        date.setDate(date.getDate() + days);
+        date.setHours(hour, 0, 0, 0);
+        return date.toISOString();
     };
-    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const download = document.createElement('a');
-    download.href = url;
-    download.download = `contagem-regressiva-${new Date().toISOString().slice(0, 10)}.json`;
-    download.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    showMessage(`${events.length} evento(s) exportado(s).`);
+
+    downloadJson({
+        app: 'contagem-regressiva',
+        version: 1,
+        instrucoes: {
+            obrigatorios: 'description e date. Os demais campos são opcionais.',
+            date: 'Data ISO 8601, ex.: 2026-12-24T20:00:00-03:00',
+            color: 'blue | purple | green | orange | red',
+            priority: 'low | medium | high | critical',
+            recurrence: 'none | daily | weekly | monthly | yearly',
+            reminderSeconds: '0 (sem lembrete) | 300 (5 min) | 3600 (1 h) | 86400 (1 dia)',
+            link: 'Endereço começando com http:// ou https://'
+        },
+        events: [
+            {
+                description: 'Entrega do projeto',
+                date: inDays(21, 18),
+                category: 'Trabalho',
+                priority: 'high',
+                color: 'blue',
+                recurrence: 'none',
+                reminderSeconds: 3600,
+                notes: 'Revisar o documento final e confirmar os anexos antes do envio.',
+                link: 'https://example.com/projeto'
+            },
+            {
+                description: 'Reunião de planejamento',
+                date: inDays(5, 14),
+                category: 'Equipe',
+                priority: 'medium',
+                color: 'green',
+                recurrence: 'weekly',
+                reminderSeconds: 300,
+                notes: '',
+                link: ''
+            },
+            {
+                description: 'Pagamento mensal',
+                date: inDays(11, 12),
+                category: 'Pessoal',
+                priority: 'critical',
+                color: 'orange',
+                recurrence: 'monthly',
+                reminderSeconds: 86400,
+                notes: 'Conferir o valor e guardar o comprovante.',
+                link: ''
+            }
+        ]
+    }, 'modelo-eventos.json');
+    showMessage('Modelo baixado. Preencha os eventos e use Backup > Importar arquivo JSON.');
 }
 
 async function importEvents(file) {
     if (!file || file.size > 2 * 1024 * 1024) {
-        showMessage('O arquivo é inválido ou excede o limite de 2 MB.');
+        showMessage('O arquivo é inválido ou passa do limite de 2 MB.');
         return;
     }
 
@@ -740,11 +840,15 @@ async function importEvents(file) {
         const importedEvents = Array.isArray(backup) ? backup : backup.events;
         if (!Array.isArray(importedEvents)) throw new Error('Formato inválido');
 
-        const knownIds = new Set(events.map(event => event.id));
+        const knownIds = new Set(allEvents().map(event => event.id));
         let importedCount = 0;
+        let skippedCount = 0;
         for (const rawEvent of importedEvents) {
-            const event = normalizeEvent(rawEvent);
-            if (!event || knownIds.has(event.id)) continue;
+            const event = isLegacyOrFixed(rawEvent) ? null : normalizeEvent(rawEvent);
+            if (!event || knownIds.has(event.id)) {
+                skippedCount += 1;
+                continue;
+            }
             knownIds.add(event.id);
             events.push(event);
             importedCount += 1;
@@ -752,13 +856,16 @@ async function importEvents(file) {
 
         saveEvents();
         renderEvents();
-        showMessage(`${importedCount} evento(s) importado(s); IDs duplicados ou inválidos foram ignorados.`);
+        const skippedText = skippedCount > 0 ? ` ${plural(skippedCount, 'ignorado', 'ignorados')} por estar repetido ou incompleto.` : '';
+        showMessage(`${plural(importedCount, 'evento importado', 'eventos importados')}.${skippedText}`);
     } catch (error) {
-        showMessage('Não foi possível importar: selecione um backup JSON válido do app.');
+        showMessage('Não foi possível importar. Use um arquivo JSON no formato do modelo.');
     } finally {
         importFileInput.value = '';
     }
 }
+
+/* ---------- Filtros e resumo ---------- */
 
 /**
  * Aplica o filtro de texto, filtro de estado e ordenação do fluxo de exibição.
@@ -769,25 +876,27 @@ function getFilteredAndSortedEvents() {
     const filter = statusFilter.value || 'all';
     const sort = sortOrder.value || 'soonest';
 
-    let filtered = events.filter(event => {
+    const filtered = allEvents().filter(event => {
         const searchableText = `${event.description} ${event.category || ''} ${event.notes || ''}`.toLocaleLowerCase('pt-BR');
-        const matchesQuery = !query || searchableText.includes(query);
+        if (query && !searchableText.includes(query)) return false;
+
         const isExpired = new Date(event.date).getTime() < Date.now();
         const active = event.active !== false;
-
-        if (!matchesQuery) return false;
-
         if (filter === 'active') return active && !isExpired;
         if (filter === 'inactive') return !active;
         if (filter === 'expired') return isExpired;
         return true;
     });
 
+    const now = Date.now();
+    const isDone = (event) => new Date(event.date).getTime() <= now;
     filtered.sort((a, b) => {
-        if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+        if (Boolean(a.fixed) !== Boolean(b.fixed)) return a.fixed ? -1 : 1;
+        // Encerrados vão para o fim da lista em qualquer ordenação.
+        if (isDone(a) !== isDone(b)) return isDone(a) ? 1 : -1;
         if (sort === 'latest') return new Date(b.date) - new Date(a.date);
-        if (sort === 'priority') return (priorityMap[b.priority || 'low'].order || 0) - (priorityMap[a.priority || 'low'].order || 0);
-        if (sort === 'alphabetical') return a.description.localeCompare(b.description);
+        if (sort === 'priority') return priorityMap[b.priority].order - priorityMap[a.priority].order;
+        if (sort === 'alphabetical') return a.description.localeCompare(b.description, 'pt-BR');
         return new Date(a.date) - new Date(b.date);
     });
 
@@ -795,15 +904,15 @@ function getFilteredAndSortedEvents() {
 }
 
 /**
- * Atualiza o painel de estatísticas.
+ * Atualiza o resumo de contagem ao lado do título da lista.
  */
-function renderStats() {
-    const expired = events.filter(event => new Date(event.date).getTime() < Date.now()).length;
-    const active = events.filter(event => event.active && new Date(event.date).getTime() >= Date.now()).length;
-
-    totalEventsValue.innerHTML = String(events.length);
-    activeEventsValue.innerHTML = String(active);
-    expiredEventsValue.innerHTML = String(expired);
+function renderSummary() {
+    const list = allEvents();
+    const now = Date.now();
+    const expired = list.filter(event => new Date(event.date).getTime() < now).length;
+    const active = list.filter(event => event.active && new Date(event.date).getTime() >= now).length;
+    const text = `${plural(list.length, 'evento', 'eventos')}, ${plural(active, 'ativo', 'ativos')}, ${plural(expired, 'encerrado', 'encerrados')}`;
+    if (eventSummary.textContent !== text) eventSummary.textContent = text;
 }
 
 /**
@@ -812,20 +921,14 @@ function renderStats() {
  * @returns {{weeks: number, days: number, hours: number, minutes: number, seconds: number}}
  */
 function calculateCountdown(targetTime) {
-    const diff = Math.max(0, targetTime - Date.now());
-    const second = 1000;
-    const minute = second * 60;
-    const hour = minute * 60;
-    const day = hour * 24;
-    const week = day * 7;
-
-    const weeks = Math.floor(diff / week);
-    const days = Math.floor((diff % week) / day);
-    const hours = Math.floor((diff % day) / hour);
-    const minutes = Math.floor((diff % hour) / minute);
-    const seconds = Math.floor((diff % minute) / second);
-
-    return { weeks, days, hours, minutes, seconds };
+    const total = calculateTotalCountdown(targetTime);
+    return {
+        weeks: Math.floor(total.days / 7),
+        days: total.days % 7,
+        hours: total.hours,
+        minutes: total.minutes,
+        seconds: total.seconds
+    };
 }
 
 /**
@@ -845,8 +948,16 @@ function calculateTotalCountdown(targetTime) {
     };
 }
 
+/* ---------- Formulário ---------- */
+
+function openFormForCreate() {
+    resetForm();
+    eventDialog.showModal();
+    descriptionInput.focus();
+}
+
 /**
- * Abre o formulário de edição para um item já existente.
+ * Abre o formulário de edição para um evento do usuário.
  * @param {string} id
  */
 function openFormForEdit(id) {
@@ -854,71 +965,52 @@ function openFormForEdit(id) {
     if (!event) return;
 
     editingEventId = id;
-    eventFormWrapper.classList.add('open');
-    openFormBtn.setAttribute('aria-expanded', 'true');
-    formTitle.innerHTML = 'Editar evento';
-    saveBtn.innerHTML = 'Salvar';
+    formTitle.textContent = 'Editar evento';
+    saveBtn.textContent = 'Salvar alterações';
     descriptionInput.value = event.description;
     dateInput.value = formatInputDate(new Date(event.date));
-    colorInput.value = event.color || 'blue';
-    priorityInput.value = event.priority || 'medium';
-    categoryInput.value = event.category || '';
-    recurrenceInput.value = event.recurrence || 'none';
-    reminderInput.value = String(event.reminderSeconds || 0);
-    notesInput.value = event.notes || '';
-    linkInput.value = event.link || '';
+    colorInput.value = event.color;
+    priorityInput.value = event.priority;
+    categoryInput.value = event.category;
+    recurrenceInput.value = event.recurrence;
+    reminderInput.value = String(event.reminderSeconds);
+    notesInput.value = event.notes;
+    linkInput.value = event.link;
+    eventDialog.showModal();
     descriptionInput.focus();
 }
 
 /**
- * Limpa o formulário e fecha o painel.
+ * Limpa o formulário para um novo cadastro.
  */
 function resetForm() {
-    eventFormWrapper.classList.remove('open');
-    openFormBtn.setAttribute('aria-expanded', 'false');
-    formTitle.innerHTML = 'Adicionar evento';
-    saveBtn.innerHTML = 'Confirmar';
-    descriptionInput.value = '';
-    dateInput.value = formatInputDate(new Date());
-    colorInput.value = 'blue';
-    priorityInput.value = 'medium';
-    categoryInput.value = '';
-    recurrenceInput.value = 'none';
-    reminderInput.value = '0';
-    notesInput.value = '';
-    linkInput.value = '';
+    formTitle.textContent = 'Novo evento';
+    saveBtn.textContent = 'Criar evento';
+    eventForm.reset();
+    dateInput.value = formatInputDate(new Date(Date.now() + 60 * 60 * 1000));
     editingEventId = null;
 }
 
-openFormBtn.addEventListener('click', () => {
-    eventFormWrapper.classList.toggle('open');
-    openFormBtn.setAttribute('aria-expanded', String(eventFormWrapper.classList.contains('open')));
-    if (!eventFormWrapper.classList.contains('open')) {
-        resetForm();
-    } else {
-        descriptionInput.focus();
-    }
+openFormBtn.addEventListener('click', openFormForCreate);
+cancelBtn.addEventListener('click', () => eventDialog.close());
+eventDialog.addEventListener('close', resetForm);
+eventDialog.addEventListener('click', (clickEvent) => {
+    // Clique no fundo escurecido fecha o diálogo.
+    if (clickEvent.target === eventDialog) eventDialog.close();
 });
 
-cancelBtn.addEventListener('click', () => {
-    resetForm();
-    openFormBtn.focus();
-});
-
-eventFormWrapper.addEventListener('submit', (submission) => {
+eventForm.addEventListener('submit', (submission) => {
     submission.preventDefault();
     const description = descriptionInput.value.trim();
     const date = new Date(dateInput.value);
     const link = normalizeLink(linkInput.value);
 
     if (!description) {
-        eventFormWrapper.classList.add('open');
         descriptionInput.focus();
-        showMessage('Informe uma descrição para o evento.');
+        showMessage('Informe um nome para o evento.');
         return;
     }
     if (!dateInput.value || Number.isNaN(date.getTime())) {
-        eventFormWrapper.classList.add('open');
         dateInput.focus();
         showMessage('Informe uma data e hora válidas.');
         return;
@@ -929,6 +1021,17 @@ eventFormWrapper.addEventListener('submit', (submission) => {
         return;
     }
 
+    const fields = {
+        description: description.slice(0, 120),
+        color: colorInput.value || 'blue',
+        priority: priorityInput.value || 'medium',
+        category: categoryInput.value.trim().slice(0, 40),
+        recurrence: recurrenceInput.value,
+        reminderSeconds: Number(reminderInput.value) || 0,
+        notes: notesInput.value.trim().slice(0, 1000),
+        link
+    };
+
     if (editingEventId) {
         const event = events.find(item => item.id === editingEventId);
         if (event) {
@@ -937,51 +1040,51 @@ eventFormWrapper.addEventListener('submit', (submission) => {
                 event.createdAt = new Date().toISOString();
                 event.reminderSentFor = '';
             }
-            event.description = description.slice(0, 120);
-            event.date = newDate;
-            event.color = colorInput.value || 'blue';
-            event.priority = priorityInput.value || 'medium';
-            event.category = categoryInput.value.trim().slice(0, 40);
-            event.recurrence = recurrenceInput.value;
-            event.reminderSeconds = Number(reminderInput.value) || 0;
-            event.notes = notesInput.value.trim().slice(0, 1000);
-            event.link = link;
+            Object.assign(event, fields, { date: newDate });
         }
+        showMessage(`Evento "${fields.description}" salvo.`);
     } else {
         events.unshift({
             id: makeId(),
-            description: description.slice(0, 120),
+            ...fields,
             date: date.toISOString(),
-            defaultEvent: false,
             active: true,
-            color: colorInput.value || 'blue',
-            priority: priorityInput.value || 'medium',
             createdAt: new Date().toISOString(),
-            category: categoryInput.value.trim().slice(0, 40),
-            recurrence: recurrenceInput.value,
-            reminderSeconds: Number(reminderInput.value) || 0,
-            reminderSentFor: '',
-            notes: notesInput.value.trim().slice(0, 1000),
-            link
+            reminderSentFor: ''
         });
+        showMessage(`Evento "${fields.description}" criado.`);
     }
 
     saveEvents();
-    resetForm();
-    openFormBtn.focus();
+    eventDialog.close();
     renderEvents();
 });
 
-document.addEventListener('keydown', (keyboardEvent) => {
-    if (keyboardEvent.key === 'Escape' && eventFormWrapper.classList.contains('open')) {
-        resetForm();
-        openFormBtn.focus();
+/* ---------- Ferramentas ---------- */
+
+exportBtn.addEventListener('click', () => {
+    dataMenu.open = false;
+    exportEvents();
+});
+importBtn.addEventListener('click', () => {
+    dataMenu.open = false;
+    importFileInput.click();
+});
+templateBtn.addEventListener('click', () => {
+    dataMenu.open = false;
+    downloadTemplate();
+});
+importFileInput.addEventListener('change', () => importEvents(importFileInput.files[0]));
+
+document.addEventListener('click', (clickEvent) => {
+    if (dataMenu.open && !dataMenu.contains(clickEvent.target)) dataMenu.open = false;
+});
+dataMenu.addEventListener('keydown', (keyboardEvent) => {
+    if (keyboardEvent.key === 'Escape' && dataMenu.open) {
+        dataMenu.open = false;
+        dataMenu.querySelector('summary').focus();
     }
 });
-
-exportBtn.addEventListener('click', exportEvents);
-importBtn.addEventListener('click', () => importFileInput.click());
-importFileInput.addEventListener('change', () => importEvents(importFileInput.files[0]));
 
 enableNotificationsBtn.addEventListener('click', async () => {
     if (notificationsEnabled) {
@@ -997,13 +1100,10 @@ enableNotificationsBtn.addEventListener('click', async () => {
     }
     try {
         const permission = await Notification.requestPermission();
-        if (permission !== 'granted') {
-            notificationsEnabled = false;
-            showMessage('Permissão de notificações não concedida.');
-        } else {
-            notificationsEnabled = true;
-            showMessage('Lembretes ativados. Mantenha o app aberto para recebê-los.');
-        }
+        notificationsEnabled = permission === 'granted';
+        showMessage(notificationsEnabled
+            ? 'Lembretes ativados. Mantenha o app aberto para recebê-los.'
+            : 'Permissão de notificações não concedida.');
         savePreferences();
         updateNotificationsButton();
     } catch (error) {
@@ -1032,25 +1132,20 @@ themeSelect.addEventListener('change', () => {
  * Atualiza as variáveis de cor no documento conforme o tema escolhido.
  */
 function applyTheme() {
-    const selected = themeSelect.value || 'blue';
-    const themes = {
-        blue: { '--blue': '#38bdf8', '--purple': '#6366f1', '--green': '#34d399', '--danger': '#f87171' },
-        violet: { '--blue': '#8b5cf6', '--purple': '#ec4899', '--green': '#34d399', '--danger': '#f87171' },
-        green: { '--blue': '#22c55e', '--purple': '#14b8a6', '--green': '#bef264', '--danger': '#f87171' },
-        mono: { '--blue': '#cbd5e1', '--purple': '#94a3b8', '--green': '#e2e8f0', '--danger': '#f87171' }
-    };
-
-    const selectedTheme = themes[selected] || themes.blue;
+    const selectedTheme = themes[themeSelect.value] || themes.blue;
     const root = document.documentElement;
     Object.entries(selectedTheme).forEach(([key, value]) => {
         root.style.setProperty(key, value);
     });
 }
 
-initializeDefaults();
+loadFixedConfig();
+events.push(...loadEvents());
+saveEvents();
 loadPreferences();
-dateInput.value = formatInputDate(new Date());
+resetForm();
 applyTheme();
 updateNotificationsButton();
+renderPeriods();
 renderEvents();
-setInterval(renderEvents, 1000);
+setInterval(tick, 1000);
