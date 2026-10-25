@@ -1,0 +1,55 @@
+{
+  "app": "contagem-regressiva",
+  "version": 1,
+  "exportedAt": "2026-10-25T12:00:00.000Z",
+  "events": [
+    {
+      "id": "exemplo-entrega-projeto",
+      "description": "Entrega do projeto",
+      "date": "2026-11-15T18:00:00.000Z",
+      "defaultEvent": false,
+      "active": true,
+      "color": "blue",
+      "priority": "high",
+      "createdAt": "2026-10-25T12:00:00.000Z",
+      "category": "Trabalho",
+      "notes": "Revisar o documento final e confirmar os anexos antes do envio.",
+      "link": "https://example.com/projeto",
+      "recurrence": "none",
+      "reminderSeconds": 3600,
+      "reminderSentFor": ""
+    },
+    {
+      "id": "exemplo-reuniao-semanal",
+      "description": "Reunião de planejamento",
+      "date": "2026-10-30T14:00:00.000Z",
+      "defaultEvent": false,
+      "active": true,
+      "color": "green",
+      "priority": "medium",
+      "createdAt": "2026-10-25T12:00:00.000Z",
+      "category": "Equipe",
+      "notes": "Preparar os principais tópicos da semana.",
+      "link": "https://example.com/reuniao",
+      "recurrence": "weekly",
+      "reminderSeconds": 300,
+      "reminderSentFor": ""
+    },
+    {
+      "id": "exemplo-pagamento-mensal",
+      "description": "Pagamento mensal",
+      "date": "2026-11-05T12:00:00.000Z",
+      "defaultEvent": false,
+      "active": true,
+      "color": "orange",
+      "priority": "critical",
+      "createdAt": "2026-10-25T12:00:00.000Z",
+      "category": "Pessoal",
+      "notes": "Conferir o valor e guardar o comprovante.",
+      "link": "",
+      "recurrence": "monthly",
+      "reminderSeconds": 86400,
+      "reminderSentFor": ""
+    }
+  ]
+}

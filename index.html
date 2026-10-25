@@ -13,11 +13,11 @@
             <div class="brand">
                 <div class="brand-icon">⏱</div>
                 <div>
-                    <div class="brand-title">Contagem Regressiva</div>
+                    <h1 class="brand-title">Contagem Regressiva</h1>
                     <div class="brand-subtitle">Lista de eventos e prazos</div>
                 </div>
             </div>
-            <button class="primary-btn" id="openFormBtn">+ Novo evento</button>
+            <button class="primary-btn" id="openFormBtn" type="button" aria-expanded="false" aria-controls="eventFormWrapper">+ Novo evento</button>
         </header>
 
         <section class="stats-strip">
@@ -35,24 +35,28 @@
             </div>
         </section>
 
-        <section class="toolbar">
+        <section class="toolbar" aria-label="Ferramentas para eventos">
             <div class="toolbar-left">
-                <input type="search" id="searchInput" class="search-input" placeholder="Buscar evento...">
+                <input type="search" id="searchInput" class="search-input" placeholder="Buscar evento..." aria-label="Buscar eventos">
+                <button class="tool-btn" id="exportBtn" type="button">Exportar backup</button>
+                <button class="tool-btn" id="importBtn" type="button">Importar backup</button>
+                <input id="importFileInput" type="file" accept="application/json,.json" hidden>
+                <button class="tool-btn" id="enableNotificationsBtn" type="button">Ativar lembretes</button>
             </div>
             <div class="toolbar-right">
-                <select id="statusFilter">
+                <select id="statusFilter" aria-label="Filtrar eventos por status">
                     <option value="all" selected>Todos</option>
                     <option value="active">Ativos</option>
                     <option value="inactive">Desativados</option>
                     <option value="expired">Expirados</option>
                 </select>
-                <select id="sortOrder">
+                <select id="sortOrder" aria-label="Ordenar eventos">
                     <option value="soonest" selected>Mais próximo</option>
                     <option value="latest">Mais distante</option>
                     <option value="priority">Prioridade</option>
                     <option value="alphabetical">Descrição A-Z</option>
                 </select>
-                <select id="themeSelect">
+                <select id="themeSelect" aria-label="Tema de cores">
                     <option value="blue" selected>Azul Profissional</option>
                     <option value="violet">Violeta</option>
                     <option value="green">Verde</option>
@@ -61,16 +65,16 @@
             </div>
         </section>
 
-        <section class="event-form-wrapper" id="eventFormWrapper">
-            <div class="form-title" id="formTitle">Adicionar evento</div>
+        <form class="event-form-wrapper" id="eventFormWrapper" novalidate>
+            <h2 class="form-title" id="formTitle">Adicionar evento</h2>
             <div class="form-grid">
                 <label>
                     Descrição
-                    <input type="text" id="descriptionInput" placeholder="Ex.: Entrega do projeto">
+                    <input type="text" id="descriptionInput" placeholder="Ex.: Entrega do projeto" maxlength="120" required>
                 </label>
                 <label>
                     Data e hora
-                    <input type="datetime-local" id="dateInput">
+                    <input type="datetime-local" id="dateInput" required>
                 </label>
                 <label>
                     Cor
@@ -91,14 +95,46 @@
                         <option value="critical">Crítica</option>
                     </select>
                 </label>
+                <label>
+                    Categoria
+                    <input type="text" id="categoryInput" placeholder="Ex.: Trabalho, pessoal" maxlength="40">
+                </label>
+                <label>
+                    Repetir
+                    <select id="recurrenceInput">
+                        <option value="none" selected>Não repetir</option>
+                        <option value="daily">Diariamente</option>
+                        <option value="weekly">Semanalmente</option>
+                        <option value="monthly">Mensalmente</option>
+                        <option value="yearly">Anualmente</option>
+                    </select>
+                </label>
+                <label>
+                    Lembrete
+                    <select id="reminderInput">
+                        <option value="0" selected>Sem lembrete</option>
+                        <option value="300">5 minutos antes</option>
+                        <option value="3600">1 hora antes</option>
+                        <option value="86400">1 dia antes</option>
+                    </select>
+                </label>
+                <label class="form-field-wide">
+                    Notas
+                    <textarea id="notesInput" rows="3" maxlength="1000" placeholder="Detalhes importantes sobre este evento"></textarea>
+                </label>
+                <label class="form-field-wide">
+                    Link relacionado
+                    <input type="url" id="linkInput" placeholder="https://exemplo.com">
+                </label>
             </div>
             <div class="form-actions">
-                <button class="secondary-btn" id="cancelBtn">Cancelar</button>
-                <button class="primary-btn" id="saveBtn">Confirmar</button>
+                <button class="secondary-btn" id="cancelBtn" type="button">Cancelar</button>
+                <button class="primary-btn" id="saveBtn" type="submit">Confirmar</button>
             </div>
-        </section>
+        </form>
 
-        <section class="event-list" id="eventList"></section>
+        <section class="event-list" id="eventList" aria-label="Lista de eventos"></section>
+        <div class="app-message" id="appMessage" role="status" aria-live="polite" hidden></div>
     </div>
 
     <script src="app.js"></script>
